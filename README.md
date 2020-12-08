@@ -1,1 +1,0 @@
-# kurrik.github.io
