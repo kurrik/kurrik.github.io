@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src="https://unpkg.com/turndown/dist/turndown.js"></script>
+        <style>
+html, body {
+    margin: 0;
+    height: 100%;
+    font: 16px Arial;
+}
+
+.columns {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 100%;
+}
+
+.row {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+}
+
+.panel {
+    flex: 1;
+    padding: 20px;
+    margin: 10px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    overflow: scroll;
+}
+
+#markdown {
+    background: #fffeee;
+    font: 16px monospace;
+}
+        </style>
+    </head>
+    <body>
+        <div class="columns">
+            <div class="row">
+                <div id="html" contenteditable="true" class="panel">
+                    Put HTML here.
+                </div>
+                <div id="markdown" contenteditable="true" class="panel">
+                    Markdown comes out here.
+                </div>
+            </div>
+        </div>
+        <script>
+// https://github.com/domchristie/turndown
+const turndownService = new TurndownService({  });
+const htmlElement = document.getElementById('html');
+const mdElement = document.getElementById('markdown');
+htmlElement.addEventListener('click', (node, ev) => {
+    document.execCommand('selectAll', false, null);
+});
+mdElement.addEventListener('click', (node, ev) => {
+    document.execCommand('selectAll', false, null);
+});
+document.getElementById('html').addEventListener('input', (node, ev) => {
+    const markdown = turndownService.turndown(htmlElement);
+    mdElement.innerText = markdown;
+    const descendants = htmlElement.querySelectorAll("*");
+    for (var i = 0; i < descendants.length; i++) {
+        descendants[i].removeAttribute('style');
+    }
+});
+        </script>
+    </body>
+</html>
