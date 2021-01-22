@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <link rel="stylesheet" href="/base.css" />
+    <link rel="stylesheet" href="../base.css" />
     <script src="https://unpkg.com/turndown/dist/turndown.js"></script>
+    <script src="  https://cdnjs.cloudflare.com/ajax/libs/showdown/1.9.1/showdown.min.js"></script>
     <style>
             
 html, body {
@@ -10,7 +11,7 @@ html, body {
   height: 100%;
 }
 
-.columns {
+.container {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -24,33 +25,62 @@ html, body {
   overflow: hidden;
 }
 
+.col {
+  display: flex;
+  flex: 1;
+  overflow: scroll;
+  flex-direction: column;
+}
+
 .panel {
   flex: 1;
   padding: 2em;
-  margin: 1em;
+  margin-left: 1em;
+  margin-top: 1em;
   border: 1px solid #ccc;
   border-radius: 10px;
   overflow: scroll;
 }
       
-.panel:last-child{
-  margin-left: 0;
+.col:last-child .panel {
+  margin-right: 1em;
+}
+
+.col .panel:last-child {
+  margin-bottom: 1em;
 }
 
 #markdown {
   background: #fffeee;
   font-family: 'Roboto Mono', monospace;
 }
+
+#buttons {
+  flex: 0;
+  margin-top: 1em;
+  margin-left: 1em;
+}
+
+button {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 0.5em;
+  font-size: 15px;
+}
     </style>
   </head>
   <body>
-    <div class="columns">
+    <div class="container">
       <div class="row">
-        <div id="html" contenteditable="true" class="panel">
-          Paste rich text here.
+        <div class="col">
+          <div id="html" contenteditable="true" class="panel">
+            Paste rich text here.
+          </div>
         </div>
-        <div id="markdown" contenteditable="true" class="panel">
-          Markdown comes out here.
+        <div class="col">
+          <div id="markdown" contenteditable="true" class="panel">
+            Markdown comes out here.
+          </div>
         </div>
       </div>
     </div>
@@ -59,19 +89,38 @@ html, body {
 const turndownService = new TurndownService({  });
 const htmlElement = document.getElementById('html');
 const mdElement = document.getElementById('markdown');
+var focused = null;
+const converter = new showdown.Converter({
+  smoothLivePreview: true,
+  simpleLineBreaks: true,
+  ghMentions: true,
+  ghMentionsLink: 'http://go/who/{u}',
+  underline: true,
+});
 htmlElement.addEventListener('click', (node, ev) => {
-  document.execCommand('selectAll', false, null);
+  if (focused != 'html') {
+    document.execCommand('selectAll', false, null);
+    focused = 'html';
+  }
 });
 mdElement.addEventListener('click', (node, ev) => {
-  document.execCommand('selectAll', false, null);
+  if (focused != 'md') {
+    document.execCommand('selectAll', false, null);
+    focused = 'md';
+  }
 });
 document.getElementById('html').addEventListener('input', (node, ev) => {
-  const markdown = turndownService.turndown(htmlElement);
-  mdElement.innerText = markdown;
   const descendants = htmlElement.querySelectorAll("*");
   for (var i = 0; i < descendants.length; i++) {
     descendants[i].removeAttribute('style');
   }
+  const markdown = turndownService.turndown(htmlElement);
+  mdElement.innerText = markdown;
+});
+mdElement.addEventListener('input', (node, ev) => {
+  const text = mdElement.innerText;
+  const html = converter.makeHtml(text);
+  htmlElement.innerHTML = html;
 });
     </script>
   </body>
