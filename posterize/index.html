@@ -595,6 +595,42 @@
         contours.delete();
         hierarchy.delete();
       }
+      // Add layer controls (checkboxes)
+      let layerControls = document.createElement('div');
+      layerControls.style.display = 'flex';
+      layerControls.style.flexWrap = 'wrap';
+      layerControls.style.gap = '8px';
+      layerControls.style.marginBottom = '10px';
+      let layerCheckboxes = [];
+      svgElems.forEach((svgElem, i) => {
+        let label = document.createElement('label');
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.gap = '4px';
+        let cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = true;
+        cb.dataset.layer = i;
+        layerCheckboxes.push(cb);
+        cb.onchange = () => {
+          svgElem.style.display = cb.checked ? '' : 'none';
+        };
+        let colorSwatch = document.createElement('span');
+        // Extract color from the SVG path fill
+        let path = svgElem.querySelector('path');
+        let color = path ? path.getAttribute('fill') : '#888';
+        colorSwatch.style.display = 'inline-block';
+        colorSwatch.style.width = '16px';
+        colorSwatch.style.height = '16px';
+        colorSwatch.style.background = color;
+        colorSwatch.style.border = '1px solid #888';
+        colorSwatch.style.borderRadius = '3px';
+        label.appendChild(cb);
+        label.appendChild(colorSwatch);
+        label.appendChild(document.createTextNode(`Layer ${i+1}`));
+        layerControls.appendChild(label);
+      });
+      vectorPreview.appendChild(layerControls);
       // Stack all stencils on top of each other in a single overlay container
       let previewStack = document.createElement('div');
       previewStack.style.position = 'relative';
