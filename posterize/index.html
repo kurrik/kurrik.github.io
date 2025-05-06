@@ -144,7 +144,7 @@
     </div>
     <div class="footer">Drop an image to begin. Adjust colors and thresholds to posterize.</div>
   </div>
-  <script src="./bezier.js"></script>
+  <script src="./imagetracer_v1.2.6.js"></script>
   <script>
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
@@ -453,7 +453,6 @@
     // --- Vector Preview ---
     vectorPreviewBtn.addEventListener('click', () => {
       if (!image) return;
-      // Recompute buckets as in posterize()
       const w = image.width, h = image.height;
       const buckets = new Uint8Array(w * h);
       const data = image.data;
@@ -472,6 +471,46 @@
       if (smoothEnable.checked) {
         smoothBuckets(buckets, w, h, colorCount, parseInt(smoothStrength.value, 10));
       }
+      // --- Vector Preview with ImageTracerJS ---
+      vectorPreview.innerHTML = '';
+      for (let bucket = 0; bucket < colorCount; ++bucket) {
+        // Create a mask canvas for this bucket
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = w;
+        maskCanvas.height = h;
+        const maskCtx = maskCanvas.getContext('2d');
+        const maskImg = maskCtx.createImageData(w, h);
+        for (let y = 0; y < h; ++y) {
+          for (let x = 0; x < w; ++x) {
+            const idx = (y * w + x);
+            const outidx = idx * 4;
+            if (buckets[idx] === bucket) {
+              maskImg.data[outidx] = 0;
+              maskImg.data[outidx+1] = 0;
+              maskImg.data[outidx+2] = 0;
+              maskImg.data[outidx+3] = 255;
+            } else {
+              maskImg.data[outidx] = 255;
+              maskImg.data[outidx+1] = 255;
+              maskImg.data[outidx+2] = 255;
+              maskImg.data[outidx+3] = 255;
+            }
+          }
+        }
+        maskCtx.putImageData(maskImg, 0, 0);
+        // Use ImageTracerJS to vectorize mask
+        ImageTracer.imageToSVG(
+          maskCanvas.toDataURL(),
+          function(svgstr) {
+            // Append SVG to preview
+            const svgDiv = document.createElement('div');
+            svgDiv.innerHTML = svgstr;
+            vectorPreview.appendChild(svgDiv);
+          },
+          'posterized2'
+        );
+      }
+      vectorPreviewContainer.style.display = 'flex';
     });
 
     // --- Save/Load State ---
