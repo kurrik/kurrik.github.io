@@ -115,6 +115,15 @@
       <div class="thresholds" id="thresholdControls">
         <!-- Threshold sliders will be injected here -->
       </div>
+      <div class="slider-group" id="borderControls">
+        <label style="display:flex;align-items:center;gap:4px;">
+          <input type="checkbox" id="borderToggle" checked>
+          Border
+        </label>
+        <label for="borderThickness" style="margin-left:12px;">Border Thickness:</label>
+        <input type="range" id="borderThickness" min="1" max="20" value="3">
+        <span id="borderThicknessLabel">3</span>
+      </div>
       <div class="slider-group" id="noiseControls">
         <label><input type="checkbox" id="noiseEnable"> Remove Noise</label>
         <label for="noiseThreshold" style="margin-left:12px;">Min Region Size:</label>
@@ -156,6 +165,9 @@
     let image = null;
     let colorCount = parseInt(colorCountSlider.value, 10);
     let thresholds = Array.from({length: colorCount-1}, (_,i) => Math.round(255 * (i+1)/colorCount));
+    const borderToggle = document.getElementById('borderToggle');
+    const borderThicknessSlider = document.getElementById('borderThickness');
+    const borderThicknessLabel = document.getElementById('borderThicknessLabel');
     const noiseEnable = document.getElementById('noiseEnable');
     const noiseThreshold = document.getElementById('noiseThreshold');
     const noiseThresholdLabel = document.getElementById('noiseThresholdLabel');
@@ -290,6 +302,19 @@
         }
       }
       ctx.putImageData(imgData, 0, 0);
+      // Optionally draw border ON TOP of posterized output
+      if (borderToggle.checked && parseInt(borderThicknessSlider.value, 10) > 0) {
+        ctx.save();
+        ctx.strokeStyle = '#fff'; // White border for now
+        ctx.lineWidth = parseInt(borderThicknessSlider.value, 10);
+        ctx.strokeRect(
+          ctx.lineWidth/2,
+          ctx.lineWidth/2,
+          w - ctx.lineWidth,
+          h - ctx.lineWidth
+        );
+        ctx.restore();
+      }
       saveState();
     }
 
@@ -756,6 +781,8 @@
           noiseThreshold: noiseThreshold.value,
           smoothEnable: smoothEnable.checked,
           smoothStrength: smoothStrength.value,
+          borderEnable: borderToggle.checked,
+          borderThickness: borderThicknessSlider.value,
           originalImageDataUrl: null
         };
         // Save original image if present
@@ -783,6 +810,10 @@
         smoothStrength.value = String(parseInt(state.smoothStrength, 10));
         smoothStrengthLabel.innerText = String(smoothStrength.value);
         smoothStrength.disabled = !smoothEnable.checked;
+        // Restore border state
+        if ('borderEnable' in state) borderToggle.checked = !!state.borderEnable;
+        if ('borderThickness' in state) borderThicknessSlider.value = String(parseInt(state.borderThickness, 10));
+        borderThicknessLabel.textContent = borderThicknessSlider.value;
         if (state.originalImageDataUrl) {
           loadImage(null, state.originalImageDataUrl);
         }
@@ -792,6 +823,17 @@
     // Initial render
     renderThresholdControls();
     loadState();
+    // --- Border control listeners ---
+    borderThicknessSlider.oninput = function() {
+      borderThicknessLabel.textContent = borderThicknessSlider.value;
+      saveState();
+      posterize();
+    };
+    borderToggle.onchange = function() {
+      saveState();
+      posterize();
+    };
+    borderThicknessLabel.textContent = borderThicknessSlider.value;
   </script>
 </body>
 </html>
