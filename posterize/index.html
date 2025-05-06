@@ -888,6 +888,7 @@
         if ('borderEnable' in state) borderToggle.checked = !!state.borderEnable;
         if ('borderThickness' in state) borderThicknessSlider.value = String(parseInt(state.borderThickness, 10));
         borderThicknessLabel.textContent = borderThicknessSlider.value;
+        borderThicknessSlider.disabled = !borderToggle.checked;
         if (typeof state.aspectRatio === 'string') {
           aspectRatioSetting = state.aspectRatio;
           aspectRatioSelect.value = aspectRatioSetting;
@@ -908,9 +909,11 @@
       posterize();
     };
     borderToggle.onchange = function() {
+      borderThicknessSlider.disabled = !borderToggle.checked;
       saveState();
       posterize();
     };
+
     borderThicknessLabel.textContent = borderThicknessSlider.value;
   </script>
 </body>
