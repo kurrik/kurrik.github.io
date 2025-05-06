@@ -546,38 +546,37 @@
         }
         // --- Split into stencils (one for each outermost contour and its holes) ---
         let used = new Array(n).fill(false);
-        // For each contour, if it is not the image border and its color matches the current bucket, create a new layer for it.
-        // Do NOT include holes as subpaths. If a hole has a child region matching the current color, that child region gets its own layer.
-        function addRegionLayer(idx) {
+        // Traverse the contour tree and add a layer for every filled region (even depth), never for holes (odd depth)
+        function addRegionLayer(idx, depth = 0) {
           if (isContourImageBorder(contours.get(idx), w, h)) return;
-          // Only add if this region is not already used
           if (used[idx]) return;
-          let pathData = contourToPath(contours.get(idx));
-          used[idx] = true;
-          if (pathData.trim() !== '') {
-            let svgElem = document.createElementNS(svgNS, 'svg');
-            svgElem.setAttribute('width', w);
-            svgElem.setAttribute('height', h);
-            svgElem.setAttribute('viewBox', `0 0 ${w} ${h}`);
-            let pathElem = document.createElementNS(svgNS, 'path');
-            let color = `hsla(${bucket * 360 / colorCount}, 80%, 60%, 0.55)`;
-            pathElem.setAttribute('d', pathData);
-            pathElem.setAttribute('fill', color);
-            pathElem.setAttribute('stroke', '#333');
-            pathElem.setAttribute('stroke-width', '0.7');
-            svgElem.appendChild(pathElem);
-            svgElem.style.margin = '8px 0';
-            svgElems.push(svgElem);
-            combinedPaths.push(`<path d="${pathData}" fill="${color}" stroke="#333" stroke-width="0.7"/>`);
+          if (depth % 2 === 0) {
+            let pathData = contourToPath(contours.get(idx));
+            used[idx] = true;
+            if (pathData.trim() !== '') {
+              let svgElem = document.createElementNS(svgNS, 'svg');
+              svgElem.setAttribute('width', w);
+              svgElem.setAttribute('height', h);
+              svgElem.setAttribute('viewBox', `0 0 ${w} ${h}`);
+              let pathElem = document.createElementNS(svgNS, 'path');
+              let color = `hsla(${bucket * 360 / colorCount}, 80%, 60%, 0.55)`;
+              pathElem.setAttribute('d', pathData);
+              pathElem.setAttribute('fill', color);
+              pathElem.setAttribute('stroke', '#333');
+              pathElem.setAttribute('stroke-width', '0.7');
+              svgElem.appendChild(pathElem);
+              svgElem.style.margin = '8px 0';
+              svgElems.push(svgElem);
+              combinedPaths.push(`<path d="${pathData}" fill="${color}" stroke="#333" stroke-width="0.7"/>`);
+            }
           }
-          // Recursively check children: if they match the current color, add as their own layer
+          used[idx] = true;
           for (let childIdx of contourTree[idx].children) {
-            addRegionLayer(childIdx);
+            addRegionLayer(childIdx, depth + 1);
           }
         }
         for (let i = 0; i < n; ++i) {
-          // Only process if not already used and not image border
-          addRegionLayer(i);
+          if (contourTree[i].parent === -1) addRegionLayer(i, 0);
         }
         mask.delete();
         contours.delete();
