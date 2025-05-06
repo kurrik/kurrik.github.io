@@ -144,7 +144,7 @@
     </div>
     <div class="footer">Drop an image to begin. Adjust colors and thresholds to posterize.</div>
   </div>
-  <script src="./imagetracer_v1.2.6.js"></script>
+  <script async src="https://docs.opencv.org/3.4.0/opencv.js"></script>
   <script>
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
@@ -450,9 +450,12 @@
       if (smoothEnable.checked) posterize();
     });
 
-    // --- Vector Preview ---
+    // --- Vector Preview with OpenCV.js ---
     vectorPreviewBtn.addEventListener('click', () => {
-      if (!image) return;
+      if (!image || typeof cv === 'undefined') {
+        alert('OpenCV.js is not loaded yet. Please wait a moment and try again.');
+        return;
+      }
       const w = image.width, h = image.height;
       const buckets = new Uint8Array(w * h);
       const data = image.data;
@@ -471,45 +474,118 @@
       if (smoothEnable.checked) {
         smoothBuckets(buckets, w, h, colorCount, parseInt(smoothStrength.value, 10));
       }
-      // --- Vector Preview with ImageTracerJS ---
       vectorPreview.innerHTML = '';
+      // --- SVG generation for all stencils ---
+      let svgNS = 'http://www.w3.org/2000/svg';
+      let svgElems = [];
+      let combinedPaths = [];
       for (let bucket = 0; bucket < colorCount; ++bucket) {
-        // Create a mask canvas for this bucket
-        const maskCanvas = document.createElement('canvas');
-        maskCanvas.width = w;
-        maskCanvas.height = h;
-        const maskCtx = maskCanvas.getContext('2d');
-        const maskImg = maskCtx.createImageData(w, h);
+        // Create a mask for this bucket
+        let mask = new cv.Mat.zeros(h, w, cv.CV_8UC1);
         for (let y = 0; y < h; ++y) {
           for (let x = 0; x < w; ++x) {
-            const idx = (y * w + x);
-            const outidx = idx * 4;
-            if (buckets[idx] === bucket) {
-              maskImg.data[outidx] = 0;
-              maskImg.data[outidx+1] = 0;
-              maskImg.data[outidx+2] = 0;
-              maskImg.data[outidx+3] = 255;
-            } else {
-              maskImg.data[outidx] = 255;
-              maskImg.data[outidx+1] = 255;
-              maskImg.data[outidx+2] = 255;
-              maskImg.data[outidx+3] = 255;
+            if (buckets[y * w + x] === bucket) {
+              mask.ucharPtr(y, x)[0] = 255;
             }
           }
         }
-        maskCtx.putImageData(maskImg, 0, 0);
-        // Use ImageTracerJS to vectorize mask
-        ImageTracer.imageToSVG(
-          maskCanvas.toDataURL(),
-          function(svgstr) {
-            // Append SVG to preview
-            const svgDiv = document.createElement('div');
-            svgDiv.innerHTML = svgstr;
-            vectorPreview.appendChild(svgDiv);
-          },
-          'posterized2'
-        );
+        // Find contours with hierarchy
+        let contours = new cv.MatVector();
+        let hierarchy = new cv.Mat();
+        cv.findContours(mask, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
+        // --- Build contour tree (hierarchy) ---
+        let contourTree = [];
+        let n = contours.size();
+        let hier = hierarchy.data32S;
+        for (let i = 0; i < n; ++i) {
+          contourTree.push({
+            idx: i,
+            children: [],
+            parent: hier[i*4+3],
+            next: hier[i*4],
+            prev: hier[i*4+1],
+            firstChild: hier[i*4+2]
+          });
+        }
+        // Link children to parents
+        for (let i = 0; i < n; ++i) {
+          if (contourTree[i].parent !== -1) {
+            contourTree[contourTree[i].parent].children.push(i);
+          }
+        }
+        // --- SVG path generation helpers ---
+        function contourToPath(cnt) {
+          let path = '';
+          if (cnt.data32S.length < 2) return path;
+          for (let j = 0; j < cnt.data32S.length; j += 2) {
+            let x = cnt.data32S[j], y = cnt.data32S[j+1];
+            if (j === 0) path += `M${x},${y}`;
+            else path += `L${x},${y}`;
+          }
+          path += 'Z';
+          return path;
+        }
+        // --- Split into stencils (one for each outermost contour and its holes) ---
+        let used = new Array(n).fill(false);
+        for (let i = 0; i < n; ++i) {
+          if (contourTree[i].parent !== -1) continue; // Only outermost
+          // Collect all children (holes/islands)
+          let pathData = contourToPath(contours.get(i));
+          let holes = contourTree[i].children;
+          for (let hidx of holes) {
+            pathData += contourToPath(contours.get(hidx));
+            used[hidx] = true;
+          }
+          used[i] = true;
+          // SVG for this region (with holes, evenodd fill)
+          let svg = document.createElementNS(svgNS, 'svg');
+          svg.setAttribute('width', w);
+          svg.setAttribute('height', h);
+          svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+          let pathElem = document.createElementNS(svgNS, 'path');
+          pathElem.setAttribute('d', pathData);
+          pathElem.setAttribute('fill', '#000');
+          pathElem.setAttribute('fill-rule', 'evenodd');
+          pathElem.setAttribute('stroke', 'none');
+          svg.appendChild(pathElem);
+          svg.style.margin = '8px 0';
+          svgElems.push(svg);
+          combinedPaths.push(`<path d="${pathData}" fill="#000" fill-rule="evenodd" stroke="none"/>`);
+        }
+        // --- Split out islands (nested contours not connected to outer) ---
+        for (let i = 0; i < n; ++i) {
+          if (used[i]) continue;
+          // Standalone region (island or internal region)
+          let pathData = contourToPath(contours.get(i));
+          let svg = document.createElementNS(svgNS, 'svg');
+          svg.setAttribute('width', w);
+          svg.setAttribute('height', h);
+          svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+          let pathElem = document.createElementNS(svgNS, 'path');
+          pathElem.setAttribute('d', pathData);
+          pathElem.setAttribute('fill', '#000');
+          pathElem.setAttribute('fill-rule', 'evenodd');
+          pathElem.setAttribute('stroke', 'none');
+          svg.appendChild(pathElem);
+          svg.style.margin = '8px 0';
+          svgElems.push(svg);
+          combinedPaths.push(`<path d="${pathData}" fill="#000" fill-rule="evenodd" stroke="none"/>`);
+        }
+        mask.delete();
+        contours.delete();
+        hierarchy.delete();
       }
+      // --- Display SVGs in preview ---
+      for (let svg of svgElems) {
+        vectorPreview.appendChild(svg);
+      }
+      // --- Enable SVG download (all regions combined) ---
+      let svgHeader = `<svg xmlns="http://www.w3.org/2000/svg" width="${image.width}" height="${image.height}" viewBox="0 0 ${image.width} ${image.height}">`;
+      let svgFooter = '</svg>';
+      let svgContent = svgHeader + combinedPaths.join('\n') + svgFooter;
+      downloadSvg.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgContent);
+      downloadSvg.style.display = 'block';
+
       vectorPreviewContainer.style.display = 'flex';
     });
 
