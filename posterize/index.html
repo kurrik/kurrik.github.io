@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Posterize Utility App</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f7f7f7;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      margin-top: 32px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+      padding: 32px 24px 24px 24px;
+      max-width: 540px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .dropzone {
+      border: 2px dashed #bbb;
+      border-radius: 8px;
+      width: 440px;
+      height: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #888;
+      background: #fafafa;
+      margin-bottom: 18px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .dropzone.dragover {
+      border-color: #0074d9;
+      color: #0074d9;
+    }
+    canvas {
+      margin: 18px 0 12px 0;
+      border-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      background: #eaeaea;
+      max-width: 100%;
+      width: 440px;
+      height: auto;
+      display: block;
+    }
+    .controls {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    .slider-group {
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+    }
+    label {
+      font-size: 15px;
+      margin-right: 8px;
+      white-space: nowrap;
+    }
+    input[type="range"] {
+      width: 160px;
+      min-width: 120px;
+      max-width: 220px;
+    }
+    .thresholds {
+      margin-top: 8px;
+      width: 100%;
+    }
+    .threshold-slider {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .threshold-slider label {
+      min-width: 80px;
+    }
+    .footer {
+      margin-top: 18px;
+      font-size: 13px;
+      color: #aaa;
+      text-align: center;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Posterize Image</h2>
+    <div id="dropzone" class="dropzone">
+      Drag & Drop Image Here<br>or Click to Select
+      <input type="file" id="fileInput" accept="image/*" style="display:none">
+    </div>
+    <canvas id="canvas" width="320" height="180" style="display:none;"></canvas>
+    <div class="controls">
+      <div class="slider-group">
+        <label for="colorCount">Colors:</label>
+        <input type="range" id="colorCount" min="2" max="8" value="3">
+        <span id="colorCountLabel">3</span>
+      </div>
+      <div class="thresholds" id="thresholdControls">
+        <!-- Threshold sliders will be injected here -->
+      </div>
+      <div class="slider-group" id="noiseControls">
+        <label><input type="checkbox" id="noiseEnable"> Remove Noise</label>
+        <label for="noiseThreshold" style="margin-left:12px;">Min Region Size:</label>
+        <input type="range" id="noiseThreshold" min="1" max="100" value="8" disabled>
+        <span id="noiseThresholdLabel">8</span>
+      </div>
+      <div class="slider-group" id="smoothControls">
+        <label><input type="checkbox" id="smoothEnable"> Smooth Edges</label>
+        <label for="smoothStrength" style="margin-left:12px;">Strength:</label>
+        <input type="range" id="smoothStrength" min="1" max="10" value="2" disabled>
+        <span id="smoothStrengthLabel">2</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;margin:12px 0 0 0;">
+      <button id="vectorPreviewBtn">Preview Vector</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+    <div id="vectorPreviewContainer" style="width:100%;margin-top:18px;display:none;flex-direction:column;align-items:center;">
+      <div style="margin-bottom:6px;"><b>Vector Preview (SVG):</b></div>
+      <div id="vectorPreview"></div>
+      <a id="downloadSvg" href="#" download="posterized.svg" style="display:block;margin-top:8px;">Download SVG</a>
+    </div>
+    <div class="footer">Drop an image to begin. Adjust colors and thresholds to posterize.</div>
+  </div>
+  <script>
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const colorCountSlider = document.getElementById('colorCount');
+    const colorCountLabel = document.getElementById('colorCountLabel');
+    const thresholdControls = document.getElementById('thresholdControls');
+    let image = null;
+    let colorCount = parseInt(colorCountSlider.value, 10);
+    let thresholds = Array.from({length: colorCount-1}, (_,i) => Math.round(255 * (i+1)/colorCount));
+    const noiseEnable = document.getElementById('noiseEnable');
+    const noiseThreshold = document.getElementById('noiseThreshold');
+    const noiseThresholdLabel = document.getElementById('noiseThresholdLabel');
+    const smoothEnable = document.getElementById('smoothEnable');
+    const smoothStrength = document.getElementById('smoothStrength');
+    const smoothStrengthLabel = document.getElementById('smoothStrengthLabel');
+    const vectorPreviewBtn = document.getElementById('vectorPreviewBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const vectorPreviewContainer = document.getElementById('vectorPreviewContainer');
+    const vectorPreview = document.getElementById('vectorPreview');
+    const downloadSvg = document.getElementById('downloadSvg');
+
+    // --- Local Storage Keys ---
+    const STORAGE_KEY = 'posterizeAppState';
+
+    // --- Drag and Drop Logic ---
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    // --- Reset Button ---
+    resetBtn.addEventListener('click', () => {
+      localStorage.removeItem(STORAGE_KEY);
+      image = null;
+      colorCountSlider.value = 3;
+      colorCountLabel.innerText = 3;
+      colorCount = 3;
+      thresholds = [85, 170];
+      renderThresholdControls();
+      noiseEnable.checked = false;
+      noiseThreshold.value = 8;
+      noiseThresholdLabel.innerText = 8;
+      noiseThreshold.disabled = true;
+      smoothEnable.checked = false;
+      smoothStrength.value = 2;
+      smoothStrengthLabel.innerText = 2;
+      smoothStrength.disabled = true;
+      canvas.style.display = 'none';
+      vectorPreviewContainer.style.display = 'none';
+      fileInput.value = '';
+      posterize();
+    });
+    dropzone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        loadImage(e.dataTransfer.files[0]);
+      }
+    });
+    fileInput.addEventListener('change', e => {
+      if (fileInput.files && fileInput.files[0]) {
+        loadImage(fileInput.files[0]);
+      }
+    });
+
+    function loadImage(file, optionalDataUrl) {
+      function onloadHandler(dataUrl) {
+        const img = new window.Image();
+        img.onload = function() {
+          // Resize canvas to fit image, max 320x320
+          const maxDim = 320;
+          let w = img.width, h = img.height;
+          if (w > maxDim || h > maxDim) {
+            const scale = Math.min(maxDim/w, maxDim/h);
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+          }
+          canvas.width = w;
+          canvas.height = h;
+          ctx.drawImage(img, 0, 0, w, h);
+          image = ctx.getImageData(0, 0, w, h);
+          canvas.style.display = '';
+          // Save the original image data URL to window for persistence
+          if (!optionalDataUrl) {
+            window._originalImageDataUrl = canvas.toDataURL();
+          } else if (!window._originalImageDataUrl) {
+            window._originalImageDataUrl = optionalDataUrl;
+          }
+          saveState();
+          posterize();
+        };
+        img.src = dataUrl;
+      }
+      if (optionalDataUrl) {
+        onloadHandler(optionalDataUrl);
+      } else {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          onloadHandler(evt.target.result);
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    // --- Posterization Logic ---
+    function posterize() {
+      if (!image) return;
+      const w = image.width, h = image.height;
+      // Step 1: Assign buckets
+      const buckets = new Uint8Array(w * h);
+      const data = image.data;
+      for (let y = 0; y < h; ++y) {
+        for (let x = 0; x < w; ++x) {
+          const i = (y * w + x) * 4;
+          const lum = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+          let bucket = 0;
+          while (bucket < thresholds.length && lum > thresholds[bucket]) bucket++;
+          buckets[y * w + x] = bucket;
+        }
+      }
+      // Step 2: Optionally remove noise
+      if (noiseEnable.checked) {
+        removeNoise(buckets, w, h, parseInt(noiseThreshold.value, 10));
+      }
+      // Step 3: Optionally smooth
+      if (smoothEnable.checked) {
+        smoothBuckets(buckets, w, h, colorCount, parseInt(smoothStrength.value, 10));
+      }
+      // Step 4: Write to output image
+      const imgData = ctx.createImageData(w, h);
+      const out = imgData.data;
+      for (let y = 0; y < h; ++y) {
+        for (let x = 0; x < w; ++x) {
+          const bucket = buckets[y * w + x];
+          const v = Math.round(255 * (bucket/(colorCount-1)));
+          const i = (y * w + x) * 4;
+          out[i] = out[i+1] = out[i+2] = v;
+          out[i+3] = data[i+3];
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+      saveState();
+    }
+
+    // --- Smoothing ---
+    function smoothBuckets(buckets, w, h, colorCount, iterations) {
+      const dx = [-1, 0, 1, -1, 1, -1, 0, 1];
+      const dy = [-1,-1,-1, 0, 0, 1, 1, 1];
+      let src = buckets, dst = new Uint8Array(w * h);
+      for (let it = 0; it < iterations; ++it) {
+        for (let y = 0; y < h; ++y) {
+          for (let x = 0; x < w; ++x) {
+            const idx = y * w + x;
+            const counts = new Array(colorCount).fill(0);
+            for (let d = 0; d < 8; ++d) {
+              const nx = x + dx[d], ny = y + dy[d];
+              if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+              counts[src[ny * w + nx]]++;
+            }
+            // Majority vote (ties prefer current value)
+            let maxBucket = src[idx], maxCount = counts[src[idx]];
+            for (let i = 0; i < counts.length; ++i) {
+              if (counts[i] > maxCount) {
+                maxCount = counts[i];
+                maxBucket = i;
+              }
+            }
+            dst[idx] = maxBucket;
+          }
+        }
+        // Swap src/dst
+        let tmp = src; src = dst; dst = tmp;
+      }
+      // Copy back if needed
+      if (src !== buckets) {
+        for (let i = 0; i < w * h; ++i) buckets[i] = src[i];
+      }
+    }
+
+    // --- Noise Removal ---
+    // Remove regions smaller than minSize (4-way connected)
+    function removeNoise(buckets, w, h, minSize) {
+      const visited = new Uint8Array(w * h);
+      const dx = [1, -1, 0, 0], dy = [0, 0, 1, -1];
+      for (let y = 0; y < h; ++y) {
+        for (let x = 0; x < w; ++x) {
+          const idx = y * w + x;
+          if (visited[idx]) continue;
+          const region = [], queue = [[x, y]];
+          const origBucket = buckets[idx];
+          visited[idx] = 1;
+          region.push(idx);
+          // BFS to find region
+          while (queue.length) {
+            const [cx, cy] = queue.pop();
+            for (let d = 0; d < 4; ++d) {
+              const nx = cx + dx[d], ny = cy + dy[d];
+              if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+              const nidx = ny * w + nx;
+              if (!visited[nidx] && buckets[nidx] === origBucket) {
+                visited[nidx] = 1;
+                queue.push([nx, ny]);
+                region.push(nidx);
+              }
+            }
+          }
+          if (region.length < minSize) {
+            // Assign to majority neighbor bucket
+            const counts = new Array(colorCount).fill(0);
+            for (const ridx of region) {
+              const rx = ridx % w, ry = Math.floor(ridx / w);
+              for (let d = 0; d < 4; ++d) {
+                const nx = rx + dx[d], ny = ry + dy[d];
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                const nidx = ny * w + nx;
+                if (buckets[nidx] !== origBucket) {
+                  counts[buckets[nidx]]++;
+                }
+              }
+            }
+            let maxBucket = origBucket, maxCount = -1;
+            for (let i = 0; i < counts.length; ++i) {
+              if (counts[i] > maxCount) {
+                maxCount = counts[i];
+                maxBucket = i;
+              }
+            }
+            for (const ridx of region) {
+              buckets[ridx] = maxBucket;
+            }
+          }
+        }
+      }
+    }
+
+    // --- Threshold Controls ---
+    function renderThresholdControls() {
+      thresholdControls.innerHTML = '';
+      for (let i = 0; i < colorCount-1; ++i) {
+        const group = document.createElement('div');
+        group.className = 'threshold-slider';
+        const label = document.createElement('label');
+        label.innerText = `Threshold ${i+1}`;
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = 0; slider.max = 255;
+        slider.value = parseInt(thresholds[i], 10);
+        slider.step = 1;
+        slider.min = 0;
+        slider.max = 255;
+        const value = document.createElement('span');
+        value.innerText = slider.value;
+        slider.addEventListener('input', () => {
+          const v = parseInt(slider.value, 10);
+          thresholds[i] = v;
+          value.innerText = v;
+          saveState();
+          posterize();
+        });
+        group.appendChild(label);
+        group.appendChild(slider);
+        group.appendChild(value);
+        thresholdControls.appendChild(group);
+      }
+    }
+
+    // --- Color Count Control ---
+    colorCountSlider.addEventListener('input', () => {
+      colorCount = parseInt(colorCountSlider.value, 10);
+      colorCountLabel.innerText = colorCount;
+      // Evenly space thresholds
+      thresholds = Array.from({length: colorCount-1}, (_,i) => Math.round(255 * (i+1)/colorCount));
+      renderThresholdControls(); // Only re-render controls when color count changes
+      saveState();
+      posterize();
+    });
+
+    // --- Noise Controls ---
+    noiseEnable.addEventListener('change', () => {
+      noiseThreshold.disabled = !noiseEnable.checked;
+      saveState();
+      posterize();
+    });
+    noiseThreshold.addEventListener('input', () => {
+      noiseThresholdLabel.innerText = noiseThreshold.value;
+      saveState();
+      if (noiseEnable.checked) posterize();
+    });
+
+    // --- Smoothing Controls ---
+    smoothEnable.addEventListener('change', () => {
+      smoothStrength.disabled = !smoothEnable.checked;
+      saveState();
+      posterize();
+    });
+    smoothStrength.addEventListener('input', () => {
+      smoothStrengthLabel.innerText = smoothStrength.value;
+      saveState();
+      if (smoothEnable.checked) posterize();
+    });
+
+    // --- Vector Preview ---
+    vectorPreviewBtn.addEventListener('click', () => {
+      if (!image) return;
+      // Recompute buckets as in posterize()
+      const w = image.width, h = image.height;
+      const buckets = new Uint8Array(w * h);
+      const data = image.data;
+      for (let y = 0; y < h; ++y) {
+        for (let x = 0; x < w; ++x) {
+          const i = (y * w + x) * 4;
+          const lum = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+          let bucket = 0;
+          while (bucket < thresholds.length && lum > thresholds[bucket]) bucket++;
+          buckets[y * w + x] = bucket;
+        }
+      }
+      if (noiseEnable.checked) {
+        removeNoise(buckets, w, h, parseInt(noiseThreshold.value, 10));
+      }
+      if (smoothEnable.checked) {
+        smoothBuckets(buckets, w, h, colorCount, parseInt(smoothStrength.value, 10));
+      }
+      // Vectorize: trace boundaries for each bucket
+      const colors = Array.from({length: colorCount}, (_,i) => `rgb(${Math.round(255*i/(colorCount-1))},${Math.round(255*i/(colorCount-1))},${Math.round(255*i/(colorCount-1))})`);
+      const svgPaths = [];
+      const visited = new Uint8Array(w * h);
+      for (let bucket = 0; bucket < colorCount; ++bucket) {
+        for (let y = 0; y < h; ++y) {
+          for (let x = 0; x < w; ++x) {
+            const idx = y * w + x;
+            if (visited[idx] || buckets[idx] !== bucket) continue;
+            // Trace closed boundary using marching squares
+            const path = marchingSquaresClosedContour(buckets, visited, w, h, x, y, bucket);
+            if (path && path.length > 30) { // Ignore tiny regions
+              svgPaths.push(`<path d="M${path.map(([px,py])=>px+','+py).join('L')}Z" fill="${colors[bucket]}" stroke="#222" stroke-width="0.5"/>`);
+            }
+          }
+        }
+      }
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${svgPaths.join('')}</svg>`;
+      vectorPreview.innerHTML = svg;
+      vectorPreviewContainer.style.display = 'flex';
+      downloadSvg.href = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+    });
+
+    // Marching Squares: closed contour for a region
+    function marchingSquaresClosedContour(buckets, visited, w, h, sx, sy, bucket) {
+      // Mark all pixels in region as visited (BFS)
+      const region = [];
+      const queue = [[sx, sy]];
+      const regVisited = new Uint8Array(w * h);
+      regVisited[sy*w+sx] = 1;
+      while (queue.length) {
+        const [cx, cy] = queue.pop();
+        visited[cy*w+cx] = 1;
+        region.push([cx, cy]);
+        for (let d = 0; d < 4; ++d) {
+          const nx = cx + [1,0,-1,0][d], ny = cy + [0,1,0,-1][d];
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          if (!regVisited[ny*w+nx] && buckets[ny*w+nx] === bucket) {
+            regVisited[ny*w+nx] = 1;
+            queue.push([nx, ny]);
+          }
+        }
+      }
+      // Marching squares: create a binary mask for the region
+      const mask = new Uint8Array(w * h);
+      for (const [x, y] of region) mask[y*w+x] = 1;
+      // Find a starting boundary cell (topmost, leftmost boundary)
+      let start = null;
+      for (let y = 0; y < h-1 && !start; ++y) {
+        for (let x = 0; x < w-1 && !start; ++x) {
+          if (mask[y*w+x] && (!mask[y*w+x+1] || !mask[(y+1)*w+x] || !mask[(y+1)*w+x+1])) {
+            start = [x, y];
+            break;
+          }
+        }
+      }
+      if (!start) return null;
+      // Marching squares contour tracing
+      const path = [];
+      let [cx, cy] = start;
+      let dir = 0; // 0: right, 1: down, 2: left, 3: up
+      const dirs = [[1,0],[0,1],[-1,0],[0,-1]];
+      let first = true;
+      do {
+        path.push([cx, cy]);
+        // Sample the 2x2 block: TL, TR, BL, BR
+        const tl = mask[cy*w+cx], tr = mask[cy*w+cx+1], bl = mask[(cy+1)*w+cx], br = mask[(cy+1)*w+cx+1];
+        // Determine case
+        let code = (tl?8:0) | (tr?4:0) | (br?2:0) | (bl?1:0);
+        // Next move by case
+        switch(code) {
+          case 1: case 5: case 13: dir = 3; break; // up
+          case 8: case 10: case 11: dir = 0; break; // right
+          case 4: case 12: case 14: dir = 1; break; // down
+          case 2: case 3: case 7: dir = 2; break; // left
+          default: dir = (dir + 1) % 4; break; // ambiguous, turn right
+        }
+        cx += dirs[dir][0];
+        cy += dirs[dir][1];
+        first = false;
+      } while ((cx !== start[0] || cy !== start[1]) && path.length < 10000);
+      return path;
+    }
+
+    // --- Save/Load State ---
+    function saveState() {
+      try {
+        const state = {
+          colorCount,
+          thresholds,
+          noiseEnable: noiseEnable.checked,
+          noiseThreshold: noiseThreshold.value,
+          smoothEnable: smoothEnable.checked,
+          smoothStrength: smoothStrength.value,
+          originalImageDataUrl: null
+        };
+        // Save original image if present
+        if (window._originalImageDataUrl) {
+          state.originalImageDataUrl = window._originalImageDataUrl;
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {}
+    }
+
+    function loadState() {
+      try {
+        const state = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (!state) return;
+        colorCount = parseInt(state.colorCount, 10);
+        colorCountSlider.value = String(colorCount);
+        colorCountLabel.innerText = String(colorCount);
+        thresholds = Array.isArray(state.thresholds) ? state.thresholds.map(v => parseInt(v, 10)) : [85,170];
+        renderThresholdControls();
+        noiseEnable.checked = !!state.noiseEnable;
+        noiseThreshold.value = String(parseInt(state.noiseThreshold, 10));
+        noiseThresholdLabel.innerText = String(noiseThreshold.value);
+        noiseThreshold.disabled = !noiseEnable.checked;
+        smoothEnable.checked = !!state.smoothEnable;
+        smoothStrength.value = String(parseInt(state.smoothStrength, 10));
+        smoothStrengthLabel.innerText = String(smoothStrength.value);
+        smoothStrength.disabled = !smoothEnable.checked;
+        if (state.originalImageDataUrl) {
+          loadImage(null, state.originalImageDataUrl);
+        }
+      } catch (e) {}
+    }
+
+    // Initial render
+    renderThresholdControls();
+    loadState();
+  </script>
+</body>
+</html>
