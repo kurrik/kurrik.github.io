@@ -302,7 +302,7 @@
         }
       }
       ctx.putImageData(imgData, 0, 0);
-      // Optionally draw border ON TOP of posterized output
+      // Draw border for live posterized output
       if (borderToggle.checked && parseInt(borderThicknessSlider.value, 10) > 0) {
         ctx.save();
         ctx.strokeStyle = '#fff'; // White border for now
@@ -482,8 +482,32 @@
         return;
       }
       const w = image.width, h = image.height;
+      // Make a copy of the image data for SVG extraction
+      let imgData = new ImageData(new Uint8ClampedArray(image.data), w, h);
+      // Draw border onto imgData if enabled
+      if (borderToggle.checked && parseInt(borderThicknessSlider.value, 10) > 0) {
+        const thickness = parseInt(borderThicknessSlider.value, 10);
+        // Top and bottom
+        for (let y = 0; y < thickness; ++y) {
+          for (let x = 0; x < w; ++x) {
+            let i = (y * w + x) * 4;
+            imgData.data[i] = 255; imgData.data[i+1] = 255; imgData.data[i+2] = 255; imgData.data[i+3] = 255;
+            let j = ((h-1-y) * w + x) * 4;
+            imgData.data[j] = 255; imgData.data[j+1] = 255; imgData.data[j+2] = 255; imgData.data[j+3] = 255;
+          }
+        }
+        // Left and right
+        for (let y = thickness; y < h-thickness; ++y) {
+          for (let x = 0; x < thickness; ++x) {
+            let i = (y * w + x) * 4;
+            imgData.data[i] = 255; imgData.data[i+1] = 255; imgData.data[i+2] = 255; imgData.data[i+3] = 255;
+            let j = (y * w + (w-1-x)) * 4;
+            imgData.data[j] = 255; imgData.data[j+1] = 255; imgData.data[j+2] = 255; imgData.data[j+3] = 255;
+          }
+        }
+      }
       const buckets = new Uint8Array(w * h);
-      const data = image.data;
+      const data = imgData.data;
       for (let y = 0; y < h; ++y) {
         for (let x = 0; x < w; ++x) {
           const i = (y * w + x) * 4;
