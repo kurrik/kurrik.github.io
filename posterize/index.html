@@ -470,12 +470,19 @@
       vectorPreview.innerHTML = '';
       downloadSvg.style.display = 'none';
       vectorPreviewContainer.style.display = 'flex';
-      // --- Download All Button ---
+      // --- Download All Button (always visible above preview) ---
       let allSvgs = [];
       let downloadAllBtn = document.createElement('button');
       downloadAllBtn.textContent = 'Download All';
-      downloadAllBtn.style.marginBottom = '12px';
+      downloadAllBtn.style.margin = '0 auto 18px auto';
       downloadAllBtn.style.display = 'block';
+      downloadAllBtn.style.padding = '8px 18px';
+      downloadAllBtn.style.fontSize = '15px';
+      downloadAllBtn.style.borderRadius = '6px';
+      downloadAllBtn.style.background = '#222';
+      downloadAllBtn.style.color = 'white';
+      downloadAllBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.09)';
+      downloadAllBtn.style.cursor = 'pointer';
       downloadAllBtn.onclick = function() {
         if (allSvgs.length === 0) return;
         if (typeof JSZip === 'undefined') {
@@ -502,6 +509,37 @@
         });
       };
       vectorPreview.appendChild(downloadAllBtn);
+      // --- Stacked Preview Container ---
+      const stackContainer = document.createElement('div');
+      stackContainer.style.position = 'relative';
+      stackContainer.style.display = 'block';
+      stackContainer.style.background = '#ff00cc';
+      stackContainer.style.borderRadius = '12px';
+      stackContainer.style.padding = '12px';
+      stackContainer.style.margin = '0 auto 18px auto';
+      stackContainer.style.width = w + 'px';
+      stackContainer.style.height = h + 'px';
+      stackContainer.style.minWidth = w + 'px';
+      stackContainer.style.minHeight = h + 'px';
+      stackContainer.style.overflow = 'auto';
+      stackContainer.style.boxShadow = '0 4px 24px rgba(0,0,0,0.10)';
+      stackContainer.style.textAlign = 'center';
+      stackContainer.style.backgroundClip = 'padding-box';
+      // Add a white background behind the SVGs for clarity
+      const whiteBg = document.createElement('div');
+      whiteBg.style.position = 'absolute';
+      whiteBg.style.left = '0';
+      whiteBg.style.top = '0';
+      whiteBg.style.width = '100%';
+      whiteBg.style.height = '100%';
+      whiteBg.style.background = 'white';
+      whiteBg.style.opacity = '0.96';
+      whiteBg.style.borderRadius = '8px';
+      whiteBg.style.zIndex = '0';
+      stackContainer.appendChild(whiteBg); // temporarily append, will reorder below
+      vectorPreview.appendChild(stackContainer);
+      // Ensure whiteBg is the first child for correct stacking
+      stackContainer.insertBefore(whiteBg, stackContainer.firstChild);
       // For each color bucket, create a separate SVG
       for (let bucket = 0; bucket < colorCount; ++bucket) {
         // Generate SVG rectangles for the pixels in this bucket
@@ -516,14 +554,17 @@
         }
         const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${rects}</svg>`;
         // Add to preview
-        const div = document.createElement('div');
-        div.style.display = 'inline-block';
-        div.style.margin = '0 8px 8px 0';
-        div.style.background = '#ff00cc'; // Magenta background for contrast
-        div.style.padding = '8px';
-        div.style.borderRadius = '8px';
-        div.innerHTML = `<div style='font-size:13px;text-align:center;margin-bottom:2px;'>Color ${bucket+1}</div>` + svg;
-        vectorPreview.appendChild(div);
+        // Create SVG wrapper for stacking
+        const svgWrapper = document.createElement('div');
+        svgWrapper.style.position = 'absolute';
+        svgWrapper.style.left = '0';
+        svgWrapper.style.top = '0';
+        svgWrapper.style.width = w + 'px';
+        svgWrapper.style.height = h + 'px';
+        svgWrapper.style.pointerEvents = 'none';
+        svgWrapper.style.zIndex = (bucket + 1).toString();
+        svgWrapper.innerHTML = svg;
+        stackContainer.appendChild(svgWrapper);
         allSvgs.push({svg, name: `color${bucket+1}.svg`});
       }
     });
