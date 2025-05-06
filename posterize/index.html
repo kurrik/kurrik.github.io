@@ -475,7 +475,8 @@
         smoothBuckets(buckets, w, h, colorCount, parseInt(smoothStrength.value, 10));
       }
       vectorPreview.innerHTML = '';
-      // --- SVG generation for all stencils ---
+      // --- Collect SVG path data for each region (for preview and export) ---
+      let regionPathData = Array.from({length: colorCount}, () => []);
       let svgNS = 'http://www.w3.org/2000/svg';
       let svgElems = [];
       let combinedPaths = [];
@@ -514,14 +515,32 @@
           }
         }
         // --- SVG path generation helpers ---
+        function isContourImageBorder(cnt, w, h) {
+          // Checks if the contour matches the image rectangle
+          if (cnt.data32S.length !== 8) return false; // Rectangle should have 4 points (8 values)
+          const pts = [];
+          for (let j = 0; j < cnt.data32S.length; j += 2) {
+            pts.push([cnt.data32S[j], cnt.data32S[j+1]]);
+          }
+          // The border can be clockwise or counterclockwise
+          const border1 = [
+            [0,0], [w-1,0], [w-1,h-1], [0,h-1]
+          ];
+          const border2 = [
+            [0,0], [0,h-1], [w-1,h-1], [w-1,0]
+          ];
+          const match = (a, b) => a.every((pt, i) => pt[0] === b[i][0] && pt[1] === b[i][1]);
+          return match(pts, border1) || match(pts, border2);
+        }
         function contourToPath(cnt) {
           let path = '';
           if (cnt.data32S.length < 2) return path;
           for (let j = 0; j < cnt.data32S.length; j += 2) {
-            let x = cnt.data32S[j], y = cnt.data32S[j+1];
+            const x = cnt.data32S[j], y = cnt.data32S[j+1];
             if (j === 0) path += `M${x},${y}`;
             else path += `L${x},${y}`;
           }
+          // Explicitly close the subpath, even for degenerate contours
           path += 'Z';
           return path;
         }
@@ -530,62 +549,77 @@
         for (let i = 0; i < n; ++i) {
           if (contourTree[i].parent !== -1) continue; // Only outermost
           // Collect all children (holes/islands)
-          let pathData = contourToPath(contours.get(i));
+          // Only add outer contour if it's not the image border
+          let subpaths = [];
+          if (!isContourImageBorder(contours.get(i), w, h)) {
+            subpaths.push(contourToPath(contours.get(i)));
+          } else {
+            console.warn('Skipped border contour as outer:', i);
+          }
           let holes = contourTree[i].children;
           for (let hidx of holes) {
-            pathData += contourToPath(contours.get(hidx));
+            if (!isContourImageBorder(contours.get(hidx), w, h)) {
+              subpaths.push(contourToPath(contours.get(hidx)));
+            } else {
+              console.warn('Skipped border contour as hole:', hidx);
+            }
             used[hidx] = true;
           }
+          // Debug: print if any subpath is the border (should never happen)
+          subpaths.forEach((sp, idx) => {
+            if (isContourImageBorder(contours.get(idx), w, h)) {
+              console.error('Border contour included in subpaths! Index:', idx);
+            }
+          });
+          let pathData = subpaths.join(' ');
           used[i] = true;
           // SVG for this region (with holes, evenodd fill)
-          let svg = document.createElementNS(svgNS, 'svg');
-          svg.setAttribute('width', w);
-          svg.setAttribute('height', h);
-          svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-          let pathElem = document.createElementNS(svgNS, 'path');
-          pathElem.setAttribute('d', pathData);
-          pathElem.setAttribute('fill', '#000');
-          pathElem.setAttribute('fill-rule', 'evenodd');
-          pathElem.setAttribute('stroke', 'none');
-          svg.appendChild(pathElem);
-          svg.style.margin = '8px 0';
-          svgElems.push(svg);
-          combinedPaths.push(`<path d="${pathData}" fill="#000" fill-rule="evenodd" stroke="none"/>`);
-        }
-        // --- Split out islands (nested contours not connected to outer) ---
-        for (let i = 0; i < n; ++i) {
-          if (used[i]) continue;
-          // Standalone region (island or internal region)
-          let pathData = contourToPath(contours.get(i));
-          let svg = document.createElementNS(svgNS, 'svg');
-          svg.setAttribute('width', w);
-          svg.setAttribute('height', h);
-          svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-          let pathElem = document.createElementNS(svgNS, 'path');
-          pathElem.setAttribute('d', pathData);
-          pathElem.setAttribute('fill', '#000');
-          pathElem.setAttribute('fill-rule', 'evenodd');
-          pathElem.setAttribute('stroke', 'none');
-          svg.appendChild(pathElem);
-          svg.style.margin = '8px 0';
-          svgElems.push(svg);
-          combinedPaths.push(`<path d="${pathData}" fill="#000" fill-rule="evenodd" stroke="none"/>`);
+          if (pathData.trim() !== '') {
+            let svgElem = document.createElementNS(svgNS, 'svg');
+            svgElem.setAttribute('width', w);
+            svgElem.setAttribute('height', h);
+            svgElem.setAttribute('viewBox', `0 0 ${w} ${h}`);
+            let pathElem = document.createElementNS(svgNS, 'path');
+            let color = `hsla(${bucket * 360 / colorCount}, 80%, 60%, 0.55)`;
+            pathElem.setAttribute('d', pathData);
+            pathElem.setAttribute('fill', color);
+            pathElem.setAttribute('stroke', '#333');
+            pathElem.setAttribute('stroke-width', '0.7');
+            svgElem.appendChild(pathElem);
+            svgElem.style.margin = '8px 0';
+            svgElems.push(svgElem);
+            combinedPaths.push(`<path d="${pathData}" fill="${color}" stroke="#333" stroke-width="0.7"/>`);
+          }
         }
         mask.delete();
         contours.delete();
         hierarchy.delete();
       }
-      // --- Display SVGs in preview ---
-      for (let svg of svgElems) {
-        vectorPreview.appendChild(svg);
-      }
+      // Stack all stencils on top of each other in a single overlay container
+      let previewStack = document.createElement('div');
+      previewStack.style.position = 'relative';
+      previewStack.style.width = w + 'px';
+      previewStack.style.height = h + 'px';
+      previewStack.style.margin = '0 auto';
+      svgElems.forEach(svgElem => {
+        svgElem.style.position = 'absolute';
+        svgElem.style.left = '0';
+        svgElem.style.top = '0';
+        svgElem.style.width = '100%';
+        svgElem.style.height = '100%';
+        svgElem.style.pointerEvents = 'none';
+        previewStack.appendChild(svgElem);
+      });
+      vectorPreview.appendChild(previewStack);
+
+
+
       // --- Enable SVG download (all regions combined) ---
       let svgHeader = `<svg xmlns="http://www.w3.org/2000/svg" width="${image.width}" height="${image.height}" viewBox="0 0 ${image.width} ${image.height}">`;
       let svgFooter = '</svg>';
       let svgContent = svgHeader + combinedPaths.join('\n') + svgFooter;
       downloadSvg.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgContent);
       downloadSvg.style.display = 'block';
-
       vectorPreviewContainer.style.display = 'flex';
     });
 
