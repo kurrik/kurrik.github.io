@@ -115,6 +115,15 @@
       <div class="thresholds" id="thresholdControls">
         <!-- Threshold sliders will be injected here -->
       </div>
+      <div class="slider-group" id="aspectRatioControls">
+        <label for="aspectRatio">Aspect Ratio:</label>
+        <select id="aspectRatio">
+          <option value="1:1">1:1</option>
+          <option value="4:3">4:3</option>
+          <option value="4:6">4:6</option>
+          <option value="8.5:11">8.5:11</option>
+        </select>
+      </div>
       <div class="slider-group" id="borderControls">
         <label style="display:flex;align-items:center;gap:4px;">
           <input type="checkbox" id="borderToggle" checked>
@@ -163,8 +172,10 @@
     const colorCountLabel = document.getElementById('colorCountLabel');
     const thresholdControls = document.getElementById('thresholdControls');
     let image = null;
+    let aspectRatioSetting = '1:1';
     let colorCount = parseInt(colorCountSlider.value, 10);
     let thresholds = Array.from({length: colorCount-1}, (_,i) => Math.round(255 * (i+1)/colorCount));
+    const aspectRatioSelect = document.getElementById('aspectRatio');
     const borderToggle = document.getElementById('borderToggle');
     const borderThicknessSlider = document.getElementById('borderThickness');
     const borderThicknessLabel = document.getElementById('borderThicknessLabel');
@@ -182,6 +193,13 @@
 
     // --- Local Storage Keys ---
     const STORAGE_KEY = 'posterizeAppState';
+
+    // --- Aspect Ratio Control ---
+    aspectRatioSelect.value = '1:1';
+    aspectRatioSelect.addEventListener('change', () => {
+      aspectRatioSetting = aspectRatioSelect.value;
+      saveState();
+    });
 
     // --- Drag and Drop Logic ---
     dropzone.addEventListener('click', () => fileInput.click());
@@ -807,6 +825,7 @@
           smoothStrength: smoothStrength.value,
           borderEnable: borderToggle.checked,
           borderThickness: borderThicknessSlider.value,
+          aspectRatio: aspectRatioSetting,
           originalImageDataUrl: null
         };
         // Save original image if present
@@ -838,6 +857,10 @@
         if ('borderEnable' in state) borderToggle.checked = !!state.borderEnable;
         if ('borderThickness' in state) borderThicknessSlider.value = String(parseInt(state.borderThickness, 10));
         borderThicknessLabel.textContent = borderThicknessSlider.value;
+        if (typeof state.aspectRatio === 'string') {
+          aspectRatioSetting = state.aspectRatio;
+          aspectRatioSelect.value = aspectRatioSetting;
+        }
         if (state.originalImageDataUrl) {
           loadImage(null, state.originalImageDataUrl);
         }
