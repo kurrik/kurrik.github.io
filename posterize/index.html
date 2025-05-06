@@ -601,7 +601,54 @@
       layerControls.style.flexWrap = 'wrap';
       layerControls.style.gap = '8px';
       layerControls.style.marginBottom = '10px';
+      layerControls.style.alignItems = 'center';
+      let enableAllBtn = document.createElement('button');
+      enableAllBtn.textContent = 'Enable All';
+      enableAllBtn.style.marginRight = '6px';
+      let disableAllBtn = document.createElement('button');
+      disableAllBtn.textContent = 'Disable All';
+      disableAllBtn.style.marginRight = '16px';
+      layerControls.appendChild(enableAllBtn);
+      layerControls.appendChild(disableAllBtn);
       let layerCheckboxes = [];
+
+      // Background layer control
+      let bgLabel = document.createElement('label');
+      bgLabel.style.display = 'flex';
+      bgLabel.style.alignItems = 'center';
+      bgLabel.style.gap = '4px';
+      let bgCb = document.createElement('input');
+      bgCb.type = 'checkbox';
+      bgCb.checked = true;
+      let bgSwatch = document.createElement('span');
+      let bgColor = '#f7f7f7';
+      bgSwatch.style.display = 'inline-block';
+      bgSwatch.style.width = '16px';
+      bgSwatch.style.height = '16px';
+      bgSwatch.style.background = bgColor;
+      bgSwatch.style.border = '1px solid #888';
+      bgSwatch.style.borderRadius = '3px';
+      bgLabel.appendChild(bgCb);
+      bgLabel.appendChild(bgSwatch);
+      bgLabel.appendChild(document.createTextNode('Background'));
+      layerControls.appendChild(bgLabel);
+
+      enableAllBtn.onclick = () => {
+        layerCheckboxes.forEach(cb => {
+          cb.checked = true;
+          cb.dispatchEvent(new Event('change'));
+        });
+        bgCb.checked = true;
+        bgCb.dispatchEvent(new Event('change'));
+      };
+      disableAllBtn.onclick = () => {
+        layerCheckboxes.forEach(cb => {
+          cb.checked = false;
+          cb.dispatchEvent(new Event('change'));
+        });
+        bgCb.checked = false;
+        bgCb.dispatchEvent(new Event('change'));
+      };
       svgElems.forEach((svgElem, i) => {
         let label = document.createElement('label');
         label.style.display = 'flex';
@@ -637,13 +684,28 @@
       previewStack.style.width = w + 'px';
       previewStack.style.height = h + 'px';
       previewStack.style.margin = '0 auto';
-      svgElems.forEach(svgElem => {
+      // Add background layer as bottom-most layer
+      let bgDiv = document.createElement('div');
+      bgDiv.style.position = 'absolute';
+      bgDiv.style.left = '0';
+      bgDiv.style.top = '0';
+      bgDiv.style.width = '100%';
+      bgDiv.style.height = '100%';
+      bgDiv.style.background = bgColor;
+      bgDiv.style.zIndex = '0';
+      bgDiv.style.margin = '8px 0';
+      previewStack.appendChild(bgDiv);
+      bgCb.onchange = () => {
+        bgDiv.style.display = bgCb.checked ? '' : 'none';
+      };
+      svgElems.forEach((svgElem, i) => {
         svgElem.style.position = 'absolute';
         svgElem.style.left = '0';
         svgElem.style.top = '0';
         svgElem.style.width = '100%';
         svgElem.style.height = '100%';
         svgElem.style.pointerEvents = 'none';
+        svgElem.style.zIndex = (i+1).toString();
         previewStack.appendChild(svgElem);
       });
       vectorPreview.appendChild(previewStack);
