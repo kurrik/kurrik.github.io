@@ -547,36 +547,74 @@
         // --- Split into stencils (one for each outermost contour and its holes) ---
         let used = new Array(n).fill(false);
         // Traverse the contour tree and add a layer for every filled region (even depth), never for holes (odd depth)
-        function addRegionLayer(idx, depth = 0) {
+        // Helper: get bounding box for a contour
+        function getBoundingBox(cnt) {
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          for (let j = 0; j < cnt.data32S.length; j += 2) {
+            const x = cnt.data32S[j], y = cnt.data32S[j+1];
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+          }
+          return {minX, minY, maxX, maxY};
+        }
+        // Helper: check if two bounding boxes intersect
+        function boxesIntersect(a, b) {
+          return !(a.maxX < b.minX || a.minX > b.maxX || a.maxY < b.minY || a.minY > b.maxY);
+        }
+        // Collect all filled regions (even depth)
+        let regionGroups = [];
+        let regionBoxes = [];
+        function collectRegions(idx, depth = 0) {
           if (isContourImageBorder(contours.get(idx), w, h)) return;
           if (used[idx]) return;
           if (depth % 2 === 0) {
-            let pathData = contourToPath(contours.get(idx));
-            used[idx] = true;
-            if (pathData.trim() !== '') {
-              let svgElem = document.createElementNS(svgNS, 'svg');
-              svgElem.setAttribute('width', w);
-              svgElem.setAttribute('height', h);
-              svgElem.setAttribute('viewBox', `0 0 ${w} ${h}`);
-              let pathElem = document.createElementNS(svgNS, 'path');
-              let color = `hsla(${bucket * 360 / colorCount}, 80%, 60%, 0.55)`;
-              pathElem.setAttribute('d', pathData);
-              pathElem.setAttribute('fill', color);
-              pathElem.setAttribute('stroke', '#333');
-              pathElem.setAttribute('stroke-width', '0.7');
-              svgElem.appendChild(pathElem);
-              svgElem.style.margin = '8px 0';
-              svgElems.push(svgElem);
-              combinedPaths.push(`<path d="${pathData}" fill="${color}" stroke="#333" stroke-width="0.7"/>`);
+            let cnt = contours.get(idx);
+            let pathData = contourToPath(cnt);
+            let bbox = getBoundingBox(cnt);
+            // Try to merge with an existing group if no intersection
+            let merged = false;
+            for (let g = 0; g < regionGroups.length; ++g) {
+              let groupBoxes = regionBoxes[g];
+              let intersects = groupBoxes.some(box => boxesIntersect(box, bbox));
+              if (!intersects) {
+                regionGroups[g].push(pathData);
+                groupBoxes.push(bbox);
+                merged = true;
+                break;
+              }
+            }
+            if (!merged) {
+              regionGroups.push([pathData]);
+              regionBoxes.push([bbox]);
             }
           }
           used[idx] = true;
           for (let childIdx of contourTree[idx].children) {
-            addRegionLayer(childIdx, depth + 1);
+            collectRegions(childIdx, depth + 1);
           }
         }
         for (let i = 0; i < n; ++i) {
-          if (contourTree[i].parent === -1) addRegionLayer(i, 0);
+          if (contourTree[i].parent === -1) collectRegions(i, 0);
+        }
+        // Now, for each group, create a single SVG layer
+        for (let group of regionGroups) {
+          let pathData = group.join(' ');
+          let svgElem = document.createElementNS(svgNS, 'svg');
+          svgElem.setAttribute('width', w);
+          svgElem.setAttribute('height', h);
+          svgElem.setAttribute('viewBox', `0 0 ${w} ${h}`);
+          let pathElem = document.createElementNS(svgNS, 'path');
+          let color = `hsla(${bucket * 360 / colorCount}, 80%, 60%, 0.55)`;
+          pathElem.setAttribute('d', pathData);
+          pathElem.setAttribute('fill', color);
+          pathElem.setAttribute('stroke', '#333');
+          pathElem.setAttribute('stroke-width', '0.7');
+          svgElem.appendChild(pathElem);
+          svgElem.style.margin = '8px 0';
+          svgElems.push(svgElem);
+          combinedPaths.push(`<path d="${pathData}" fill="${color}" stroke="#333" stroke-width="0.7"/>`);
         }
         mask.delete();
         contours.delete();
