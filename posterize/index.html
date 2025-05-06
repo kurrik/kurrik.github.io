@@ -465,89 +465,68 @@
       if (smoothEnable.checked) {
         smoothBuckets(buckets, w, h, colorCount, parseInt(smoothStrength.value, 10));
       }
-      // Vectorize: trace boundaries for each bucket
+      // --- New Vector Output: One SVG per color bucket ---
       const colors = Array.from({length: colorCount}, (_,i) => `rgb(${Math.round(255*i/(colorCount-1))},${Math.round(255*i/(colorCount-1))},${Math.round(255*i/(colorCount-1))})`);
-      const svgPaths = [];
-      const visited = new Uint8Array(w * h);
+      vectorPreview.innerHTML = '';
+      downloadSvg.style.display = 'none';
+      vectorPreviewContainer.style.display = 'flex';
+      // --- Download All Button ---
+      let allSvgs = [];
+      let downloadAllBtn = document.createElement('button');
+      downloadAllBtn.textContent = 'Download All';
+      downloadAllBtn.style.marginBottom = '12px';
+      downloadAllBtn.style.display = 'block';
+      downloadAllBtn.onclick = function() {
+        if (allSvgs.length === 0) return;
+        if (typeof JSZip === 'undefined') {
+          // Load JSZip dynamically if not present
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+          script.onload = () => downloadAllBtn.onclick();
+          document.body.appendChild(script);
+          return;
+        }
+        const zip = new JSZip();
+        allSvgs.forEach(({svg, name}) => zip.file(name, svg));
+        zip.generateAsync({type:'blob'}).then(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'posterized_svgs.zip';
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(()=>{
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }, 100);
+        });
+      };
+      vectorPreview.appendChild(downloadAllBtn);
+      // For each color bucket, create a separate SVG
       for (let bucket = 0; bucket < colorCount; ++bucket) {
+        // Generate SVG rectangles for the pixels in this bucket
+        let rects = '';
         for (let y = 0; y < h; ++y) {
           for (let x = 0; x < w; ++x) {
             const idx = y * w + x;
-            if (visited[idx] || buckets[idx] !== bucket) continue;
-            // Trace closed boundary using marching squares
-            const path = marchingSquaresClosedContour(buckets, visited, w, h, x, y, bucket);
-            if (path && path.length > 30) { // Ignore tiny regions
-              svgPaths.push(`<path d="M${path.map(([px,py])=>px+','+py).join('L')}Z" fill="${colors[bucket]}" stroke="#222" stroke-width="0.5"/>`);
+            if (buckets[idx] === bucket) {
+              rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${colors[bucket]}"/>`;
             }
           }
         }
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${rects}</svg>`;
+        // Add to preview
+        const div = document.createElement('div');
+        div.style.display = 'inline-block';
+        div.style.margin = '0 8px 8px 0';
+        div.style.background = '#ff00cc'; // Magenta background for contrast
+        div.style.padding = '8px';
+        div.style.borderRadius = '8px';
+        div.innerHTML = `<div style='font-size:13px;text-align:center;margin-bottom:2px;'>Color ${bucket+1}</div>` + svg;
+        vectorPreview.appendChild(div);
+        allSvgs.push({svg, name: `color${bucket+1}.svg`});
       }
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${svgPaths.join('')}</svg>`;
-      vectorPreview.innerHTML = svg;
-      vectorPreviewContainer.style.display = 'flex';
-      downloadSvg.href = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
     });
-
-    // Marching Squares: closed contour for a region
-    function marchingSquaresClosedContour(buckets, visited, w, h, sx, sy, bucket) {
-      // Mark all pixels in region as visited (BFS)
-      const region = [];
-      const queue = [[sx, sy]];
-      const regVisited = new Uint8Array(w * h);
-      regVisited[sy*w+sx] = 1;
-      while (queue.length) {
-        const [cx, cy] = queue.pop();
-        visited[cy*w+cx] = 1;
-        region.push([cx, cy]);
-        for (let d = 0; d < 4; ++d) {
-          const nx = cx + [1,0,-1,0][d], ny = cy + [0,1,0,-1][d];
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-          if (!regVisited[ny*w+nx] && buckets[ny*w+nx] === bucket) {
-            regVisited[ny*w+nx] = 1;
-            queue.push([nx, ny]);
-          }
-        }
-      }
-      // Marching squares: create a binary mask for the region
-      const mask = new Uint8Array(w * h);
-      for (const [x, y] of region) mask[y*w+x] = 1;
-      // Find a starting boundary cell (topmost, leftmost boundary)
-      let start = null;
-      for (let y = 0; y < h-1 && !start; ++y) {
-        for (let x = 0; x < w-1 && !start; ++x) {
-          if (mask[y*w+x] && (!mask[y*w+x+1] || !mask[(y+1)*w+x] || !mask[(y+1)*w+x+1])) {
-            start = [x, y];
-            break;
-          }
-        }
-      }
-      if (!start) return null;
-      // Marching squares contour tracing
-      const path = [];
-      let [cx, cy] = start;
-      let dir = 0; // 0: right, 1: down, 2: left, 3: up
-      const dirs = [[1,0],[0,1],[-1,0],[0,-1]];
-      let first = true;
-      do {
-        path.push([cx, cy]);
-        // Sample the 2x2 block: TL, TR, BL, BR
-        const tl = mask[cy*w+cx], tr = mask[cy*w+cx+1], bl = mask[(cy+1)*w+cx], br = mask[(cy+1)*w+cx+1];
-        // Determine case
-        let code = (tl?8:0) | (tr?4:0) | (br?2:0) | (bl?1:0);
-        // Next move by case
-        switch(code) {
-          case 1: case 5: case 13: dir = 3; break; // up
-          case 8: case 10: case 11: dir = 0; break; // right
-          case 4: case 12: case 14: dir = 1; break; // down
-          case 2: case 3: case 7: dir = 2; break; // left
-          default: dir = (dir + 1) % 4; break; // ambiguous, turn right
-        }
-        cx += dirs[dir][0];
-        cy += dirs[dir][1];
-        first = false;
-      } while ((cx !== start[0] || cy !== start[1]) && path.length < 10000);
-      return path;
-    }
 
     // --- Save/Load State ---
     function saveState() {
