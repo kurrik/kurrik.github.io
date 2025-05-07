@@ -126,6 +126,13 @@
           <option value="8.5:11">8.5:11</option>
         </select>
       </div>
+      <div class="slider-group" id="cropModeControls">
+        <label for="cropMode">Cropping:</label>
+        <select id="cropMode">
+          <option value="crop">Crop to Aspect Ratio</option>
+          <option value="fit">Fit Entire Image</option>
+        </select>
+      </div>
       <div class="slider-group" id="borderControls">
         <label style="display:flex;align-items:center;gap:4px;">
           <input type="checkbox" id="borderToggle" checked>
@@ -176,6 +183,8 @@
     const thresholdControls = document.getElementById('thresholdControls');
     let image = null;
     let aspectRatioSetting = '1:1';
+    let cropMode = 'crop'; // 'crop' or 'fit'
+
 
     // Helper to parse aspect ratio string (e.g., '4:3', '8.5:11', '5:3')
     function parseAspectRatio(val) {
@@ -187,6 +196,7 @@
     let colorCount = parseInt(colorCountSlider.value, 10);
     let thresholds = Array.from({length: colorCount-1}, (_,i) => Math.round(255 * (i+1)/colorCount));
     const aspectRatioSelect = document.getElementById('aspectRatio');
+    const cropModeSelect = document.getElementById('cropMode');
     const borderToggle = document.getElementById('borderToggle');
     const borderThicknessSlider = document.getElementById('borderThickness');
     const borderThicknessLabel = document.getElementById('borderThicknessLabel');
@@ -210,7 +220,14 @@
     aspectRatioSelect.addEventListener('change', () => {
       aspectRatioSetting = aspectRatioSelect.value;
       saveState();
-      // If an image is loaded, re-crop and redraw it with the new aspect ratio
+      if (window._originalImageDataUrl) {
+        loadImage(null, window._originalImageDataUrl);
+      }
+    });
+    cropModeSelect.value = cropMode;
+    cropModeSelect.addEventListener('change', () => {
+      cropMode = cropModeSelect.value;
+      saveState();
       if (window._originalImageDataUrl) {
         loadImage(null, window._originalImageDataUrl);
       }
@@ -263,38 +280,43 @@
       function onloadHandler(dataUrl) {
         const img = new window.Image();
         img.onload = function() {
-          // --- Crop image to match aspect ratio ---
           const ratio = parseAspectRatio(aspectRatioSetting);
           let iw = img.width, ih = img.height;
-          let cropW = iw, cropH = ih;
-          if (iw / ih > ratio) {
-            // Image is wider than target ratio
-            cropW = Math.round(ih * ratio);
-            cropH = ih;
+          let canvasW = 320, canvasH = 320;
+          if (ratio >= 1) {
+            canvasH = Math.round(320 / ratio);
           } else {
-            // Image is taller than target ratio
-            cropW = iw;
-            cropH = Math.round(iw / ratio);
-          }
-          const sx = Math.floor((iw - cropW) / 2);
-          const sy = Math.floor((ih - cropH) / 2);
-
-          // --- Set canvas size to match aspect ratio (max 320px for width or height) ---
-          const maxDim = 320;
-          let canvasW = maxDim, canvasH = Math.round(maxDim / ratio);
-          if (canvasH > maxDim) {
-            canvasH = maxDim;
-            canvasW = Math.round(maxDim * ratio);
+            canvasW = Math.round(320 * ratio);
           }
           canvas.width = canvasW;
           canvas.height = canvasH;
-
-          // --- Draw cropped image to fit canvas ---
           ctx.clearRect(0, 0, canvasW, canvasH);
-          ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, canvasW, canvasH);
+          if (cropMode === 'fit') {
+            // Fit entire image inside aspect ratio (letterbox/pillarbox)
+            const scale = Math.min(canvasW / iw, canvasH / ih);
+            const drawW = Math.round(iw * scale);
+            const drawH = Math.round(ih * scale);
+            const dx = Math.floor((canvasW - drawW) / 2);
+            const dy = Math.floor((canvasH - drawH) / 2);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvasW, canvasH);
+            ctx.drawImage(img, 0, 0, iw, ih, dx, dy, drawW, drawH);
+          } else {
+            // Crop image to match aspect ratio
+            let cropW = iw, cropH = ih;
+            if (iw / ih > ratio) {
+              cropW = Math.round(ih * ratio);
+              cropH = ih;
+            } else {
+              cropW = iw;
+              cropH = Math.round(iw / ratio);
+            }
+            const sx = Math.floor((iw - cropW) / 2);
+            const sy = Math.floor((ih - cropH) / 2);
+            ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, canvasW, canvasH);
+          }
           image = ctx.getImageData(0, 0, canvasW, canvasH);
           canvas.style.display = '';
-          // Save the original image data URL to window for persistence
           if (!optionalDataUrl) {
             window._originalImageDataUrl = canvas.toDataURL();
           } else if (!window._originalImageDataUrl) {
@@ -914,9 +936,9 @@
           borderEnable: borderToggle.checked,
           borderThickness: borderThicknessSlider.value,
           aspectRatio: aspectRatioSetting,
+          cropMode: cropMode,
           originalImageDataUrl: null
         };
-        // Save original image if present
         if (window._originalImageDataUrl) {
           state.originalImageDataUrl = window._originalImageDataUrl;
         }
@@ -949,6 +971,10 @@
         if (typeof state.aspectRatio === 'string') {
           aspectRatioSetting = state.aspectRatio;
           aspectRatioSelect.value = aspectRatioSetting;
+        }
+        if (typeof state.cropMode === 'string') {
+          cropMode = state.cropMode;
+          cropModeSelect.value = cropMode;
         }
         if (state.originalImageDataUrl) {
           loadImage(null, state.originalImageDataUrl);
