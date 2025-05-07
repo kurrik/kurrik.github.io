@@ -185,76 +185,100 @@ export class StencilConversionStrategy extends BaseVectorConversionStrategy {
         const contours = new cv.MatVector();
         const hierarchy = new cv.Mat();
 
-        // Use the correct OpenCV constants for contour finding modes
-        // RETR_EXTERNAL = 0, RETR_LIST = 1, RETR_CCOMP = 2, RETR_TREE = 3
-        const RETR_MODE = 2; // RETR_CCOMP equivalent
-
-        // CHAIN_APPROX_NONE = 1, CHAIN_APPROX_SIMPLE = 2, CHAIN_APPROX_TC89_L1 = 3...
-        const CHAIN_APPROX = 2; // CHAIN_APPROX_SIMPLE equivalent
-
-        // Find contours
+        // Use RETR_TREE for full hierarchy
+        const RETR_MODE = 3; // RETR_TREE
+        const CHAIN_APPROX = 2; // CHAIN_APPROX_SIMPLE
         cv.findContours(mask, contours, hierarchy, RETR_MODE, CHAIN_APPROX);
 
-        // Sample color for this bucket (using HSL for better visual distinction)
-        const color = `hsla(${bucket * 360 / colorCount}, 80%, 60%, 0.95)`;
-
-        // Process contours to create SVG paths
-        const pathsForBucket: VectorPathData[] = [];
-        // Use the border settings from the PosterizeSettings
-        const borderThickness = settings.type === VectorType.OUTLINE ? 2 : 1; // Default to 1 for filled type
-
-        // Extract contour data and build paths
-        for (let i = 0; i < contours.size(); i++) {
-          const cnt = contours.get(i);
-
-          // Skip tiny contours that might be noise
-          // Calculate contour area - use appropriate method based on OpenCV availability
-          let area = 0;
-          try {
-            // Use any type to bypass TypeScript checking for OpenCV.js
-            const cvAny = cv as any;
-            if (typeof cvAny.contourArea === 'function') {
-              area = cvAny.contourArea(cnt);
-            } else {
-              // Fallback: estimate area based on bounding rect
-              const rect = cvAny.boundingRect ? cvAny.boundingRect(cnt) : null;
-              if (rect) {
-                area = rect.width * rect.height;
-              }
-            }
-          } catch (e) {
-            console.warn('Error calculating contour area:', e);
-          }
-          if (area < 2) {
-            cnt.delete();
-            continue;
-          }
-
-          // Convert contour to SVG path string
-          const path = this.contourToPath(cnt);
-
-          // Create SVG path data
-          pathsForBucket.push({
-            d: path,
-            fill: color,
-            stroke: '#333',
-            strokeWidth: borderThickness.toString()
+        // Parse hierarchy
+        const nContours = contours.size();
+        const hier = hierarchy.data32S;
+        const contourTree = [] as Array<{ idx: number; children: number[]; parent: number }>;
+        for (let i = 0; i < nContours; ++i) {
+          contourTree.push({
+            idx: i,
+            children: [],
+            parent: hier[i * 4 + 3]
           });
-
-          // Clean up the contour object
-          cnt.delete();
+        }
+        for (let i = 0; i < nContours; ++i) {
+          if (contourTree[i].parent !== -1) {
+            contourTree[contourTree[i].parent].children.push(i);
+          }
         }
 
-        // Add this layer
-        if (pathsForBucket.length > 0) {
+        // SVG color
+        const color = `hsla(${bucket * 360 / colorCount}, 80%, 60%, 0.95)`;
+        const borderThickness = settings.type === VectorType.OUTLINE ? 2 : 1;
+
+        // Helper: bounding box for merging (optional, for parity with legacy)
+        const getBoundingBox = (cnt: any) => {
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          if (cnt.data32S) {
+            for (let j = 0; j < cnt.data32S.length; j += 2) {
+              const x = cnt.data32S[j], y = cnt.data32S[j + 1];
+              minX = Math.min(minX, x);
+              minY = Math.min(minY, y);
+              maxX = Math.max(maxX, x);
+              maxY = Math.max(maxY, y);
+            }
+          }
+          return { minX, minY, maxX, maxY };
+        };
+        const boxesIntersect = (a: any, b: any) => {
+          return !(a.maxX < b.minX || a.minX > b.maxX || a.maxY < b.minY || a.minY > b.maxY);
+        };
+
+        // Recursive region collector
+        let regionGroups: string[][] = [];
+        let regionBoxes: any[][] = [];
+        const collectRegions = (idx: number, depth = 0) => {
+          if (idx < 0 || idx >= nContours) return;
+          if (depth % 2 === 0) {
+            const cnt = contours.get(idx);
+            const path = this.contourToPath(cnt);
+            const bbox = getBoundingBox(cnt);
+            let merged = false;
+            for (let g = 0; g < regionGroups.length; ++g) {
+              let groupBoxes = regionBoxes[g];
+              let intersects = groupBoxes.some(box => boxesIntersect(box, bbox));
+              if (!intersects) {
+                regionGroups[g].push(path);
+                groupBoxes.push(bbox);
+                merged = true;
+                break;
+              }
+            }
+            if (!merged) {
+              regionGroups.push([path]);
+              regionBoxes.push([bbox]);
+            }
+            cnt.delete();
+          }
+          // Recurse on children
+          for (const childIdx of contourTree[idx].children) {
+            collectRegions(childIdx, depth + 1);
+          }
+        };
+
+        // Traverse roots
+        for (let i = 0; i < nContours; ++i) {
+          if (contourTree[i].parent === -1) collectRegions.call(this, i, 0);
+        }
+        // Output each group as a layer
+        for (let group of regionGroups) {
+          const pathData = group.join(' ');
           layers.push({
             id: `layer-${bucket}`,
-            paths: pathsForBucket,
+            paths: [{
+              d: pathData,
+              fill: color,
+              stroke: '#333',
+              strokeWidth: borderThickness.toString()
+            }],
             visible: true
           });
         }
-
-        // Clean up OpenCV resources
         mask.delete();
         contours.delete();
         hierarchy.delete();
