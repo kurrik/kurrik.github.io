@@ -121,6 +121,7 @@
         <select id="aspectRatio">
           <option value="1:1">1:1</option>
           <option value="4:3">4:3</option>
+          <option value="5:3">5:3</option>
           <option value="4:6">4:6</option>
           <option value="8.5:11">8.5:11</option>
         </select>
@@ -176,9 +177,10 @@
     let image = null;
     let aspectRatioSetting = '1:1';
 
-    // Helper to parse aspect ratio string (e.g., '4:3', '8.5:11')
+    // Helper to parse aspect ratio string (e.g., '4:3', '8.5:11', '5:3')
     function parseAspectRatio(val) {
       if (val === '8.5:11') return 8.5/11;
+      // '5:3' and other ratios will be parsed generically
       const [w, h] = val.split(':').map(Number);
       return w/h;
     }
