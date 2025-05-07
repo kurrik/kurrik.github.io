@@ -79,8 +79,29 @@ export class ImageProcessingService implements IImageProcessingService {
         const bucket = buckets[i];
         const pixelIndex = i * 4;
         
-        // Calculate color for this bucket (using the same palette as the posterization)
-        const bucketColor = settings.thresholds[bucket] || (bucket * 255 / (colorCount - 1));
+        // Calculate color for this bucket using a proper mapping that preserves contrast
+        let bucketColor: number;
+        
+        // Map each bucket to its corresponding threshold value or to a full range
+        // from black to white for better contrast
+        if (bucket === 0) {
+          bucketColor = 0; // Darkest bucket is always pure black
+        } else if (bucket === colorCount - 1) {
+          bucketColor = 255; // Lightest bucket is always pure white
+        } else if (settings.thresholds && settings.thresholds.length > 0) {
+          // For intermediate buckets, use the threshold values if available
+          // We need to ensure these are properly spaced to maintain contrast
+          const thresholdIndex = bucket - 1;
+          if (thresholdIndex >= 0 && thresholdIndex < settings.thresholds.length) {
+            bucketColor = settings.thresholds[thresholdIndex];
+          } else {
+            // Fallback to evenly distributed grayscale values
+            bucketColor = Math.round(bucket * 255 / (colorCount - 1));
+          }
+        } else {
+          // No thresholds available, distribute evenly
+          bucketColor = Math.round(bucket * 255 / (colorCount - 1));
+        }
         
         // Set RGBA values
         processedPixels[pixelIndex] = bucketColor;     // R
