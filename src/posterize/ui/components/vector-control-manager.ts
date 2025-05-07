@@ -665,7 +665,6 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
       layersDiv.appendChild(svgElem);
     });
 
-    // Add layers div to the preview container
     vectorPreview.appendChild(layersDiv);
 
     // Create layer controls
@@ -682,8 +681,8 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
     // Clear existing controls
     layerControls.innerHTML = '';
 
-    // Store a reference to the current vector output for future updates
-    this.lastVectorOutput = vectorOutput;
+    // Always use the latest vector output from the service; do not store a stale reference
+    // this.lastVectorOutput = vectorOutput; // REMOVE this line
 
     // Create layer toggles
     vectorOutput.layers.forEach((layer, i) => {
@@ -724,10 +723,10 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
           // Update layer visibility through the VectorOutputService
           this.vectorOutputService.updateLayerVisibility(layerId, isVisible);
 
-          // Re-render the vector preview if we have a current output
-          if (this.lastVectorOutput) {
-            // The output service already updated the visibility, just re-render it
-            this.renderVectorPreview(this.lastVectorOutput);
+          // Always fetch the latest vector output from the service and re-render
+          const currentOutput = this.vectorOutputService.getVectorOutput();
+          if (currentOutput) {
+            this.renderVectorPreview(currentOutput);
           }
         }
       });
