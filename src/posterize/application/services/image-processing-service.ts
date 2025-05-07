@@ -69,10 +69,41 @@ export class ImageProcessingService implements IImageProcessingService {
         smoothSettings.strength
       );
     }
+    
+    // Update the processed image data based on the modified buckets
+    if (noiseSettings.enabled || smoothSettings.enabled) {
+      // We need to update the processedImageData to reflect the changes in buckets
+      const processedPixels = new Uint8ClampedArray(width * height * 4);
+      
+      for (let i = 0; i < buckets.length; i++) {
+        const bucket = buckets[i];
+        const pixelIndex = i * 4;
+        
+        // Calculate color for this bucket (using the same palette as the posterization)
+        const bucketColor = settings.thresholds[bucket] || (bucket * 255 / (colorCount - 1));
+        
+        // Set RGBA values
+        processedPixels[pixelIndex] = bucketColor;     // R
+        processedPixels[pixelIndex + 1] = bucketColor; // G
+        processedPixels[pixelIndex + 2] = bucketColor; // B
+        processedPixels[pixelIndex + 3] = 255;         // A (fully opaque)
+      }
+      
+      // Create a new ImageData object with the updated pixels
+      const processedModel = new ImageDataModel(
+        processedPixels,
+        width,
+        height,
+        result.processedImageData.metadata
+      );
+      
+      // Update the processed image data in the result
+      result.processedImageData = processedModel;
+    }
 
     // Apply border if enabled
     if (borderSettings.enabled && borderSettings.thickness > 0) {
-      // Update the result with new buckets
+      // Get the processed model, ensuring we have the correct instance type
       const processedModel = result.processedImageData instanceof ImageDataModel
         ? result.processedImageData as ImageDataModel
         : new ImageDataModel(
@@ -131,10 +162,18 @@ export class ImageProcessingService implements IImageProcessingService {
     // Generate vector output
     const vectorResult = this.generateVector(processingResult, vectorSettings);
     
+    // Get cross-hatching settings from vectorSettings or use defaults
+    const crossHatchingSettings = vectorSettings.crossHatchingSettings || {
+      enabled: false,  // Default value
+      density: 5,      // Default value
+      angle: 45,       // Default value
+      lineWidth: 1     // Default value
+    };
+    
     // Apply cross-hatching if enabled
     const finalOutput = this.applyCrossHatching(
       vectorResult, 
-      vectorSettings.crossHatchingSettings
+      crossHatchingSettings
     );
     
     return finalOutput;

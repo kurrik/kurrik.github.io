@@ -82,6 +82,7 @@ export interface VectorSettings {
   type: VectorType;
   curveSmoothing: number;
   exportLayers: boolean;
+  crossHatchingSettings?: CrossHatchingSettings;
 }
 
 export interface CrossHatchingSettings {
