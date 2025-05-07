@@ -166,6 +166,28 @@
         <input type="range" id="bezierSlider" min="0" max="10" value="3">
         <span id="bezierSliderValue">3</span>
       </div>
+
+      <!-- Cross-hatching controls for pen plotter output -->
+      <div class="slider-group" id="crossHatchingControls" style="display:none;max-width:340px;width:100%;margin:0 auto 16px auto;border-top:1px solid #eee;padding-top:12px;">
+        <div style="margin-bottom:8px;font-weight:bold;color:#059669;">Pen Plotter Settings</div>
+        <label style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">
+          <input type="checkbox" id="crossHatchingToggle">
+          <span>Use Cross-Hatching for Tones</span>
+        </label>
+
+        <div style="display:flex;align-items:center;margin-bottom:6px;">
+          <label for="crossHatchingDensity" style="min-width:70px;">Density:</label>
+          <input type="range" id="crossHatchingDensity" min="1" max="10" value="5" disabled>
+          <span id="crossHatchingDensityLabel" style="margin-left:6px;">5</span>
+        </div>
+
+        <div style="display:flex;align-items:center;">
+          <label for="crossHatchingAngle" style="min-width:70px;">Angle:</label>
+          <input type="range" id="crossHatchingAngle" min="0" max="180" value="45" disabled>
+          <span id="crossHatchingAngleLabel" style="margin-left:6px;">45°</span>
+        </div>
+      </div>
+
       <div id="vectorPreview"></div>
       <button id="downloadSvgBtn" style="display:block;margin-top:8px;">Download SVG</button>
       <button id="downloadZipBtn" style="display:block;margin-top:8px;">Download All Layers (ZIP)</button>
@@ -173,6 +195,14 @@
     <div class="footer">Drop an image to begin. Adjust colors and thresholds to posterize.</div>
   </div>
   <script async src="https://docs.opencv.org/3.4.0/opencv.js"></script>
-  <script src="posterize/posterize.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+    // Add event to signal when OpenCV.js is loaded
+    window.onOpenCvReady = function() {
+      const event = new Event('opencv-loaded');
+      document.dispatchEvent(event);
+    };
+  </script>
+  <script type="module" src="posterize/posterize.js"></script>
 </body>
 </html>

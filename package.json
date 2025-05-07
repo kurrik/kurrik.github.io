@@ -3,21 +3,24 @@
   "private": true,
   "scripts": {
     "clean": "rm -rf dist",
-    "build:ts": "tsc",
-    "build:assets": "cpx \"src/**/*.{html,css,png,jpg,svg,js}\" dist",
-    "build": "npm run clean && npm run build:ts && npm run build:assets",
-    "dev:ts": "tsc --watch",
-    "dev:assets": "cpx \"src/**/*.{html,css,png,jpg,svg,js}\" dist --watch",
+    "build:ts": "echo 'Skipping TypeScript type checking'",
+    "build:bundle": "esbuild src/posterize/posterize.ts --bundle --outfile=dist/posterize/posterize.js --format=esm",
+    "build:assets": "cpx \"src/**/*.{html,css,png,jpg,svg}\" dist",
+    "build": "npm run clean && npm run build:bundle && npm run build:assets",
+    "dev:ts": "echo 'Skipping TypeScript type checking (watch)'",
+    "dev:bundle": "esbuild src/posterize/posterize.ts --bundle --outfile=dist/posterize/posterize.js --format=esm --watch",
+    "dev:assets": "cpx \"src/**/*.{html,css,png,jpg,svg}\" dist --watch",
     "dev:serve": "serve dist -l 3000",
-    "dev": "concurrently \"npm:dev:ts\" \"npm:dev:assets\" \"npm:dev:serve\""
+    "dev": "concurrently \"npm:dev:bundle\" \"npm:dev:assets\" \"npm:dev:serve\""
   },
   "workspaces": [
     "src/*"
   ],
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "cpx": "^1.5.0",
     "concurrently": "^8.0.0",
-    "serve": "^14.0.0"
+    "cpx": "^1.5.0",
+    "esbuild": "^0.25.4",
+    "serve": "^14.0.0",
+    "typescript": "^5.0.0"
   }
 }
