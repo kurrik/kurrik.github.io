@@ -129,46 +129,7 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
    * Create stencil-specific controls
    */
   private createStencilControls(container: HTMLElement): void {
-    // Create bezier curve control
-    const bezierContainer = document.createElement('div');
-    bezierContainer.className = 'slider-group';
-    bezierContainer.style.display = 'flex';
-    bezierContainer.style.flexWrap = 'wrap';
-    bezierContainer.style.alignItems = 'center';
-    bezierContainer.style.width = '100%';
-    bezierContainer.style.maxWidth = '340px';
-    bezierContainer.style.margin = '0 auto 10px auto';
-
-    // Label
-    const label = document.createElement('label');
-    label.id = 'bezierSliderLabel';
-    label.htmlFor = 'bezierSlider';
-    label.textContent = 'Curve Fit:';
-    label.style.minWidth = '80px';
-
-    // Slider
-    const slider = document.createElement('input');
-    slider.type = 'range';
-    slider.id = 'bezierSlider';
-    slider.min = '0';
-    slider.max = '10';
-    slider.value = '3';
-
-    // Value display
-    const valueDisplay = document.createElement('span');
-    valueDisplay.id = 'bezierSliderValue';
-    valueDisplay.textContent = '3';
-    valueDisplay.style.marginLeft = '8px';
-
-    // Assemble
-    bezierContainer.appendChild(label);
-    bezierContainer.appendChild(slider);
-    bezierContainer.appendChild(valueDisplay);
-    container.appendChild(bezierContainer);
-
-    // Store references
-    this.elements.bezierSlider = slider;
-    this.elements.bezierSliderValue = valueDisplay;
+    // No controls needed for stencil strategy at this time.
   }
 
   /**
@@ -499,15 +460,7 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
       this.debouncedUpdatePreview();
     });
 
-    // We could also bind to the bezier curve slider here
-    const { bezierSlider } = this.elements;
-    if (bezierSlider) {
-      bezierSlider.addEventListener('input', () => {
-        // The value update is handled in the bezier slider's own event handler
-        // Just need to trigger the preview update here
-        this.debouncedUpdatePreview();
-      });
-    }
+
   }
 
   /**
@@ -658,7 +611,7 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
 
     // Update the vector output service
     this.vectorOutputService.setVectorOutput(vectorOutput);
-    
+
     // Store the current vector output for local reference
     this.lastVectorOutput = vectorOutput;
 
@@ -769,7 +722,7 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
         if (layerId) {
           // Update layer visibility through the VectorOutputService
           this.vectorOutputService.updateLayerVisibility(layerId, isVisible);
-          
+
           // Re-render the vector preview if we have a current output
           if (this.lastVectorOutput) {
             // The output service already updated the visibility, just re-render it
@@ -818,7 +771,7 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
     if (vectorOutput) {
       return vectorOutput;
     }
-    
+
     // Otherwise, we'll need to regenerate it
     try {
       const currentImageData = this.imageManager.getCurrentImageData();
@@ -838,21 +791,21 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
       if (vectorResult.vectorOutput) {
         this.vectorOutputService.setVectorOutput(vectorResult.vectorOutput);
       }
-      
+
       return vectorResult.vectorOutput;
     } catch (error) {
       console.error('Error getting current vector output:', error);
       return null;
     }
   }
-  
+
   /**
    * Set visibility for all layers
    */
   private setAllLayersVisibility(visible: boolean): void {
     // Use the VectorOutputService to update all layers' visibility
     this.vectorOutputService.setAllLayersVisibility(visible);
-    
+
     // Get the current vector output after visibility has been updated
     const vectorOutput = this.getCurrentVectorOutput();
     if (!vectorOutput) return;
