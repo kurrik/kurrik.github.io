@@ -26,6 +26,7 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
   private vectorConversionService: VectorConversionService;
   private debounceTimer: number | null = null;
   private debounceDelay: number = 500; // ms
+  private lastVectorOutput: VectorOutput | null = null; // Store the last vector output for layer visibility toggling
   protected elements: Record<string, HTMLElement | null> = {};
 
   constructor(
@@ -52,7 +53,6 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
     const penDrawingControls = document.getElementById('penDrawingControls');
     const layerControls = document.getElementById('layerControls');
     const actionButtonsContainer = document.getElementById('actionButtonsContainer');
-    const exportButtonsContainer = document.getElementById('exportButtonsContainer');
 
     // Initialize storage for dynamically created controls
     this.elements = {
@@ -62,7 +62,6 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
       penDrawingControls,
       layerControls,
       actionButtonsContainer,
-      exportButtonsContainer,
       strategyControlsContainer
     };
 
@@ -84,11 +83,6 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
     // Create layer control buttons
     if (layerControls) {
       this.createLayerControlButtons(layerControls);
-    }
-
-    // Create export buttons
-    if (exportButtonsContainer) {
-      this.createExportButtons(exportButtonsContainer);
     }
   }
 
@@ -320,29 +314,7 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
     this.elements.layersList = layersListContainer;
   }
 
-  /**
-   * Create export buttons
-   */
-  private createExportButtons(container: HTMLElement): void {
-    // Download SVG button
-    const downloadSvgBtn = document.createElement('button');
-    downloadSvgBtn.id = 'downloadSvgBtn';
-    downloadSvgBtn.textContent = 'Download SVG';
-    downloadSvgBtn.style.display = 'block';
-    downloadSvgBtn.style.marginBottom = '8px';
-    container.appendChild(downloadSvgBtn);
-
-    // Download ZIP button
-    const downloadZipBtn = document.createElement('button');
-    downloadZipBtn.id = 'downloadZipBtn';
-    downloadZipBtn.textContent = 'Download All Layers (ZIP)';
-    downloadZipBtn.style.display = 'block';
-    container.appendChild(downloadZipBtn);
-
-    // Store references
-    this.elements.downloadSvgBtn = downloadSvgBtn;
-    this.elements.downloadZipBtn = downloadZipBtn;
-  }
+  // Export button creation has been moved to ExportManager for better separation of concerns
 
   /**
    * Bind vector control events
@@ -754,6 +726,9 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
 
     // Clear existing controls
     layerControls.innerHTML = '';
+    
+    // Store a reference to the current vector output for future updates
+    this.lastVectorOutput = vectorOutput;
 
     // Create layer toggles
     vectorOutput.layers.forEach((layer, i) => {
@@ -781,9 +756,26 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
       checkbox.type = 'checkbox';
       checkbox.checked = layer.visible;
       checkbox.id = `layer-toggle-${i}`;
+      checkbox.setAttribute('data-layer-id', layer.id);
       checkbox.style.marginRight = '8px';
-      checkbox.addEventListener('change', () => {
-        this.updateLayerVisibility(layer.id, checkbox.checked);
+      
+      // Add event listener that properly updates and re-renders the layer
+      checkbox.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement;
+        const isVisible = target.checked;
+        const layerId = target.getAttribute('data-layer-id');
+        
+        if (layerId) {
+          // Update the layer visibility in our stored reference
+          if (this.lastVectorOutput) {
+            const layerToUpdate = this.lastVectorOutput.layers.find((l: { id: string; visible: boolean }) => l.id === layerId);
+            if (layerToUpdate) {
+              layerToUpdate.visible = isVisible;
+              // Re-render with updated visibility
+              this.renderVectorPreview(this.lastVectorOutput);
+            }
+          }
+        }
       });
 
       // Create label
