@@ -1,5 +1,7 @@
 1. Code should be organized according to DDD principles.
 2. A `spec.md` file is an architecture design which applies to that directory and all subdirectories.
 3. If a `spec.md` file exists in a directory or parent directory you're working in, read it and make your changes according to the architecture.
-4. If you substantially change or add to an architecture, make an update to `spec.md` to record your change.
-5. Do NOT create `utils` directories.  Think about how the functions you're adding should be incorporated into the DDD model.
+4. If you substantially change or add to an architecture, make an update to the closest parent `spec.md` file.
+5. Do NOT create `utils`, `utilities`, `helpers` or similar directories.  Think about how the functions you're adding should be incorporated into the DDD model.
+6. The project uses Typescript.
+7. The project runs entirely in a browser environment, with no Node backend.
