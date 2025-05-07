@@ -1,6 +1,6 @@
 /**
  * Posterize Application - Main Entry Point
- * 
+ *
  * This file serves as the main entry point for the Posterize application.
  * It initializes all the components and sets up the application.
  */
@@ -38,41 +38,41 @@ class PosterizeApp {
   private stateManagementService: StateManagementService;
   private exportService: ExportService;
   private vectorOutputService: VectorOutputService;
-  
+
   // UI Components
   private uiControlManager: UIControlManager;
   private layerPanelManager: LayerPanelManager;
   private previewManager: PreviewManager;
-  
+
   // View Models
   private imageViewModel: ImageViewModel;
   private controlsViewModel: ControlsViewModel;
-  
+
   // Infrastructure adapters
   private localStorageAdapter: LocalStorageAdapter;
   private openCVAdapter: OpenCVAdapter;
   private fileSystemAdapter: FileSystemAdapter;
-  
+
   // UI Elements
   private crossHatchingButton: HTMLButtonElement | null = null;
-  
+
   constructor() {
     // Initialize infrastructure adapters
     this.localStorageAdapter = new LocalStorageAdapter();
     this.openCVAdapter = new OpenCVAdapter();
     this.fileSystemAdapter = new FileSystemAdapter();
-    
+
     // Initialize services
     this.imageProcessingService = new ImageProcessingService();
     this.stateManagementService = new StateManagementService(this.localStorageAdapter);
     this.exportService = new ExportService(this.fileSystemAdapter);
     this.vectorOutputService = new VectorOutputService(); // Initialize the VectorOutputService
-    
+
     // Initialize view models
     this.imageViewModel = new ImageViewModel();
     const savedState = this.stateManagementService.loadState();
     this.controlsViewModel = new ControlsViewModel(savedState || undefined);
-    
+
     // Initialize UI components
     this.uiControlManager = new UIControlManager(
       this.imageProcessingService,
@@ -80,45 +80,47 @@ class PosterizeApp {
       this.vectorOutputService  // Inject the VectorOutputService
     );
     this.layerPanelManager = new LayerPanelManager(
-  this.stateManagementService
-);
+      this.stateManagementService
+    );
     this.previewManager = new PreviewManager(
-  this.stateManagementService
-);
-    
+      this.stateManagementService
+    );
+
     // Expose components to window global for inter-component communication
     window.previewManager = this.previewManager;
     window.layerPanelManager = this.layerPanelManager;
   }
-  
+
   /**
    * Initialize the application
    */
   initialize(): void {
+    // Initialize UIControlManager and create all UI-level controls
+    this.uiControlManager.initialize();
     // Load state
     const savedState = this.stateManagementService.loadState();
     if (savedState !== null) {
       this.controlsViewModel = new ControlsViewModel(savedState);
       this.uiControlManager.updateControls(savedState);
     }
-    
+
     // Set up event bindings
     this.uiControlManager.bindControlEvents();
-    
+
     // Create cross-hatching button
     this.createCrossHatchingButton();
-    
+
     // Listen for OpenCV.js to load
     document.addEventListener('opencv-loaded', () => {
       console.log('OpenCV.js loaded');
     });
-    
+
     // Initialize UI based on current state
     this.updateUI();
-    
+
     console.log('Posterize application initialized');
   }
-  
+
   /**
    * Create cross-hatching button for pen plotter output
    */
@@ -129,38 +131,38 @@ class PosterizeApp {
       console.error('Vector preview button not found');
       return;
     }
-    
+
     // Check if we already have a crossHatchPreviewBtn button
     if (document.getElementById('crossHatchPreviewBtn')) {
       return; // Button already exists
     }
-    
+
     // Create cross-hatching button
     this.crossHatchingButton = document.createElement('button');
     this.crossHatchingButton.id = 'crossHatchingBtn';
     this.crossHatchingButton.textContent = 'Generate Pen Plotter SVG';
     this.crossHatchingButton.style.marginLeft = '8px';
-    
+
     // Add tooltip explaining the feature
     this.crossHatchingButton.title = 'Generate an SVG optimized for pen plotters with cross-hatching patterns instead of filled regions';
-    
+
     // Add highlight styling to make it stand out
     this.crossHatchingButton.style.backgroundColor = '#34d399';
     this.crossHatchingButton.style.color = '#064e3b';
     this.crossHatchingButton.style.border = '1px solid #059669';
-    
+
     // Add event listener
     this.crossHatchingButton.addEventListener('click', () => {
       this.generateCrossHatchedSVG();
     });
-    
+
     // Insert after vector preview button
     vectorPreviewBtn.parentNode?.insertBefore(
       this.crossHatchingButton,
       vectorPreviewBtn.nextSibling
     );
   }
-  
+
   /**
    * Generate cross-hatched SVG for pen plotter
    */
@@ -169,31 +171,31 @@ class PosterizeApp {
       alert('Please process an image first.');
       return;
     }
-    
+
     // Save the current settings
     const oldSettings = this.controlsViewModel.vectorSettings.clone();
-    
+
     // Update vector settings to use cross-hatching
     this.controlsViewModel.vectorSettings.type = VectorType.OUTLINE;
     this.controlsViewModel.vectorSettings.crossHatchingSettings.enabled = true;
-    
+
     // Generate vector output
     const result = this.imageProcessingService.generateVector(
       this.imageViewModel.processedResult!,
       this.controlsViewModel.vectorSettings
     );
-    
+
     // Apply cross-hatching transform
     const crossHatchedOutput = this.imageProcessingService.applyCrossHatching(
       result,
       this.controlsViewModel.vectorSettings.crossHatchingSettings
     );
-    
+
     // Display the result
     this.imageViewModel.setVectorOutput(crossHatchedOutput);
     this.previewManager.renderCrossHatchedPreview(crossHatchedOutput);
     this.layerPanelManager.createLayerControls(crossHatchedOutput);
-    
+
     // Add download button
     const downloadBtn = document.getElementById('downloadSvgBtn');
     if (downloadBtn) {
@@ -201,11 +203,11 @@ class PosterizeApp {
         this.exportService.downloadSvg(crossHatchedOutput, 'pen_plotter.svg');
       });
     }
-    
+
     // Restore original settings
     this.controlsViewModel.vectorSettings = oldSettings;
   }
-  
+
   /**
    * Update UI based on current state
    */

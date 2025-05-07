@@ -112,9 +112,31 @@ export class UIControlManager extends BaseManager implements IUIControlManager {
    * Initialize references to application-level DOM elements
    */
   protected initializeElementReferences(): void {
-    // Only keep application-level controls here
+    // Get container for action buttons
+    const actionButtonsContainer = document.getElementById('actionButtonsContainer');
+    console.log('UIControlManager: actionButtonsContainer found:', !!actionButtonsContainer);
+
+    // Create Reset button
+    let resetBtn: HTMLButtonElement | null = null;
+    if (actionButtonsContainer) {
+      resetBtn = document.createElement('button');
+      resetBtn.id = 'resetBtn';
+      resetBtn.textContent = 'Reset';
+      resetBtn.style.minWidth = '90px';
+      resetBtn.style.padding = '8px 18px';
+      resetBtn.style.fontSize = '15px';
+      resetBtn.style.borderRadius = '4px';
+      resetBtn.style.border = 'none';
+      resetBtn.style.background = '#f44336';
+      resetBtn.style.color = '#fff';
+      resetBtn.style.cursor = 'pointer';
+      actionButtonsContainer.appendChild(resetBtn);
+      console.log('UIControlManager: Reset button created and appended');
+    } else {
+      console.warn('UIControlManager: actionButtonsContainer not found, Reset button not created');
+    }
     this.elements = {
-      resetBtn: document.getElementById('resetBtn')
+      resetBtn
     };
   }
 

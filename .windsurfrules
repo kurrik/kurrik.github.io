@@ -5,3 +5,4 @@
 5. Do NOT create `utils`, `utilities`, `helpers` or similar directories.  Think about how the functions you're adding should be incorporated into the DDD model.
 6. The project uses Typescript.
 7. The project runs entirely in a browser environment, with no Node backend.
+8. You are the developer.  Don't ask if I want instructions on how to make the change, just make the change directly.
