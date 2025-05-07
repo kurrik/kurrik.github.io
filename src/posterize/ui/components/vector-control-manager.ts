@@ -651,6 +651,7 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
       svgElem.style.width = '100%';
       svgElem.style.height = '100%';
       svgElem.style.zIndex = (i + 1).toString();
+      svgElem.style.opacity = '0.7';
 
       layer.paths.forEach(path => {
         const pathElem = document.createElementNS(svgNS, 'path');
