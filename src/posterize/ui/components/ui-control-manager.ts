@@ -16,8 +16,8 @@ import { ExportManager } from './export-manager';
 // Declare global interfaces for our app components
 declare global {
   interface Window {
-    previewManager?: any;
-    layerPanelManager?: any;
+    previewManager: any;
+    layerPanelManager: any;
     JSZip?: any; // For the JSZip library
   }
 }

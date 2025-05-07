@@ -199,8 +199,13 @@ export class ImageManager extends BaseManager implements IImageManager {
     );
 
     // Draw processed image to canvas
+    // Convert our ImageData to a canvas ImageData
+    const { width, height } = result.processedImageData.dimensions;
+    const canvasImageData = ctx.createImageData(width, height);
+    canvasImageData.data.set(result.processedImageData.pixels);
+    
     ctx.putImageData(
-      result.processedImageData.toCanvasImageData(),
+      canvasImageData,
       0,
       0
     );
