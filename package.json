@@ -11,6 +11,9 @@
     "dev:serve": "serve dist -l 3000",
     "dev": "concurrently \"npm:dev:ts\" \"npm:dev:assets\" \"npm:dev:serve\""
   },
+  "workspaces": [
+    "src/*"
+  ],
   "devDependencies": {
     "typescript": "^5.0.0",
     "cpx": "^1.5.0",

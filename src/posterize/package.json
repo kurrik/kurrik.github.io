@@ -1,0 +1,17 @@
+{
+  "name": "posterize",
+  "version": "1.0.0",
+  "description": "Posterize utility app for image vectorization and SVG generation.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "author": "kurrik",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
