@@ -663,9 +663,11 @@
         let regionGroups = [];
         let regionBoxes = [];
         function collectRegions(idx, depth = 0) {
-          if (isContourImageBorder(contours.get(idx), w, h)) return;
+          // Allow the image border contour only if border is enabled and this is the top (white) bucket
+          const isBorder = isContourImageBorder(contours.get(idx), w, h);
           if (used[idx]) return;
-          if (depth % 2 === 0) {
+          // Only skip adding the border region as a layer, not its children
+          if (depth % 2 === 0 && !(isBorder && borderToggle.checked && bucket === colorCount - 1)) {
             let cnt = contours.get(idx);
             let pathData = contourToPath(cnt);
             let bbox = getBoundingBox(cnt);
