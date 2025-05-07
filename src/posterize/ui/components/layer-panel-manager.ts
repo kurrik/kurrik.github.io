@@ -7,7 +7,10 @@ import {
   VectorLayer
 } from '../../types/interfaces';
 
-export class LayerPanelManager implements ILayerPanelManager {
+import { BaseManager } from './base-manager';
+import { StateManagementService } from '../../application/services/state-management-service';
+
+export class LayerPanelManager extends BaseManager implements ILayerPanelManager {
   private layerPanel: HTMLElement | null;
   private vectorPreviewContainer: HTMLElement | null;
   private layerCheckboxes: Map<string, HTMLInputElement> = new Map();
@@ -17,11 +20,23 @@ export class LayerPanelManager implements ILayerPanelManager {
   private onLayerVisibilityChange: (layerId: string, visible: boolean) => void = () => {};
 
   constructor(
+    stateManagementService: StateManagementService,
     layerPanelContainerId: string = 'vectorPreview',
     vectorPreviewContainerId: string = 'vectorPreviewContainer'
   ) {
+    super(stateManagementService);
     this.layerPanel = document.getElementById(layerPanelContainerId);
     this.vectorPreviewContainer = document.getElementById(vectorPreviewContainerId);
+  }
+
+  /**
+   * Initialize element references needed by this manager
+   */
+  protected initializeElementReferences(): void {
+    this.elements = {
+      layerPanel: document.getElementById('vectorPreview'),
+      vectorPreviewContainer: document.getElementById('vectorPreviewContainer')
+    };
   }
 
   /**
@@ -291,13 +306,13 @@ export class LayerPanelManager implements ILayerPanelManager {
     if (!this.layerPanel || !this.currentVectorOutput) return;
     
     // Check if preview stack already exists
-    let previewStack = this.layerPanel.querySelector('.preview-stack');
+    let previewStack = this.layerPanel.querySelector('.preview-stack') as HTMLElement | null;
     if (previewStack) {
       previewStack.remove();
     }
     
     // Create new preview stack
-    previewStack = document.createElement('div');
+    previewStack = document.createElement('div') as HTMLElement;
     previewStack.className = 'preview-stack';
     previewStack.style.position = 'relative';
     previewStack.style.width = `${vectorOutput.dimensions.width}px`;
@@ -415,5 +430,14 @@ export class LayerPanelManager implements ILayerPanelManager {
       cb.checked = false;
       this.updateLayerVisibility(layerId, false);
     });
+  }
+
+  // Satisfy BaseManager contract
+  public bindEvents(): void {
+    // No-op: LayerPanelManager does not have bindable events at this level
+  }
+
+  protected updateControlsInternal(): void {
+    // No-op: LayerPanelManager does not have internal controls to update
   }
 }

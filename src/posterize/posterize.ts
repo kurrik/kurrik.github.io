@@ -79,8 +79,12 @@ class PosterizeApp {
       this.stateManagementService,
       this.vectorOutputService  // Inject the VectorOutputService
     );
-    this.layerPanelManager = new LayerPanelManager();
-    this.previewManager = new PreviewManager();
+    this.layerPanelManager = new LayerPanelManager(
+  this.stateManagementService
+);
+    this.previewManager = new PreviewManager(
+  this.stateManagementService
+);
     
     // Expose components to window global for inter-component communication
     window.previewManager = this.previewManager;

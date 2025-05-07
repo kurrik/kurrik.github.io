@@ -8,7 +8,10 @@ import {
 } from '../../types/interfaces';
 import { ImageDataModel } from '../../domain/models/image-data';
 
-export class PreviewManager implements IPreviewManager {
+import { BaseManager } from './base-manager';
+import { StateManagementService } from '../../application/services/state-management-service';
+
+export class PreviewManager extends BaseManager implements IPreviewManager {
   private canvas: HTMLCanvasElement | null;
   private vectorPreviewContainer: HTMLElement | null;
   private vectorPreviewElement: HTMLElement | null;
@@ -16,17 +19,29 @@ export class PreviewManager implements IPreviewManager {
   private _currentVectorOutput: VectorOutput | null = null;
 
   constructor(
+    stateManagementService: StateManagementService,
     canvasId: string = 'canvas',
     vectorPreviewContainerId: string = 'vectorPreviewContainer',
     vectorPreviewElementId: string = 'vectorPreview'
   ) {
+    super(stateManagementService);
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     this.vectorPreviewContainer = document.getElementById(vectorPreviewContainerId);
     this.vectorPreviewElement = document.getElementById(vectorPreviewElementId);
-    
     if (this.canvas) {
       this.ctx = this.canvas.getContext('2d');
     }
+  }
+
+  /**
+   * Initialize element references needed by this manager
+   */
+  protected initializeElementReferences(): void {
+    this.elements = {
+      canvas: document.getElementById('canvas'),
+      vectorPreviewContainer: document.getElementById('vectorPreviewContainer'),
+      vectorPreviewElement: document.getElementById('vectorPreview')
+    };
   }
 
   /**
@@ -219,5 +234,14 @@ export class PreviewManager implements IPreviewManager {
         console.error('Error restoring canvas content after resize:', error);
       }
     }
+  }
+
+  // Satisfy BaseManager contract
+  public bindEvents(): void {
+    // No-op: PreviewManager does not have bindable events at this level
+  }
+
+  protected updateControlsInternal(): void {
+    // No-op: PreviewManager does not have internal controls to update
   }
 }

@@ -30,13 +30,16 @@ declare global {
   }
 }
 
-export class UIControlManager implements IUIControlManager {
-  private stateManagementService: StateManagementService;
+import { BaseManager } from './base-manager';
+
+
+export class UIControlManager extends BaseManager implements IUIControlManager {
+  protected stateManagementService: StateManagementService;
   private imageProcessingService: ImageProcessingService;
   private vectorOutputService: VectorOutputService;
   private vectorConversionService: VectorConversionService = new VectorConversionService();
-  private currentState: AppState;
-  
+  protected currentState: AppState;
+
   // Specialized managers
   private imageManager!: ImageManager;
   private colorControlManager!: ColorControlManager;
@@ -46,9 +49,9 @@ export class UIControlManager implements IUIControlManager {
   private smoothingControlManager!: SmoothingControlManager;
   private vectorControlManager!: VectorControlManager;
   private exportManager!: ExportManager;
-  
+
   // UI element references for application-level controls
-  private elements: {
+  protected elements: {
     [key: string]: HTMLElement | null;
   } = {};
 
@@ -57,11 +60,12 @@ export class UIControlManager implements IUIControlManager {
     stateManagementService: StateManagementService,
     vectorOutputService: VectorOutputService
   ) {
+    super(stateManagementService);
     this.stateManagementService = stateManagementService;
     this.imageProcessingService = imageProcessingService;
     this.vectorOutputService = vectorOutputService;
     this.currentState = stateManagementService.getDefaultState();
-    
+
     // Create all managers
     this.initializeManagers();
   }
@@ -82,9 +86,9 @@ export class UIControlManager implements IUIControlManager {
       this.vectorConversionService = new VectorConversionService();
     }
     this.vectorControlManager = new VectorControlManager(
-      this.imageProcessingService, 
-      this.stateManagementService, 
-      this.imageManager, 
+      this.imageProcessingService,
+      this.stateManagementService,
+      this.imageManager,
       this.vectorConversionService,
       this.vectorOutputService
     );
@@ -92,7 +96,7 @@ export class UIControlManager implements IUIControlManager {
       this.stateManagementService,
       this.vectorOutputService
     );
-    
+
     // Initialize all managers
     this.imageManager.initialize();
     this.colorControlManager.initialize();
@@ -107,13 +111,13 @@ export class UIControlManager implements IUIControlManager {
   /**
    * Initialize references to application-level DOM elements
    */
-  private initializeElementReferences(): void {
+  protected initializeElementReferences(): void {
     // Only keep application-level controls here
     this.elements = {
       resetBtn: document.getElementById('resetBtn')
     };
   }
-  
+
   /**
    * Bind all control events
    */
@@ -127,12 +131,12 @@ export class UIControlManager implements IUIControlManager {
     this.smoothingControlManager.bindEvents();
     this.vectorControlManager.bindEvents();
     this.exportManager.bindEvents();
-    
+
     // Bind application-level events
     this.bindResetButton();
     this.bindCustomEvents();
   }
-  
+
   /**
    * Bind custom events for communication between managers
    */
@@ -141,14 +145,14 @@ export class UIControlManager implements IUIControlManager {
     document.addEventListener('posterize:processImage', () => {
       this.imageManager.processImage();
     });
-    
+
     // Listen for vector preview events with debouncing (500ms)
     const debouncedPreviewUpdate = debounce(() => {
       this.vectorControlManager.updatePreview();
     }, 500);
-    
+
     document.addEventListener('posterize:generateVectorPreview', debouncedPreviewUpdate);
-    
+
     // Listen for download events
     document.addEventListener('posterize:downloadSvg', (e: Event) => {
       const customEvent = e as CustomEvent;
@@ -156,7 +160,7 @@ export class UIControlManager implements IUIControlManager {
         this.exportManager.downloadSvgFile(customEvent.detail.vectorOutput);
       }
     });
-    
+
     document.addEventListener('posterize:downloadZip', (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail && customEvent.detail.vectorOutput) {
@@ -164,7 +168,7 @@ export class UIControlManager implements IUIControlManager {
       }
     });
   }
-  
+
   /**
    * Bind reset button
    */
@@ -190,15 +194,15 @@ export class UIControlManager implements IUIControlManager {
 
     // Reset UI through updateControls
     this.updateControls(this.currentState);
-    
+
     // Hide vector preview container
     const vectorPreviewContainer = document.getElementById('vectorPreviewContainer');
     if (vectorPreviewContainer) vectorPreviewContainer.style.display = 'none';
-    
+
     // Hide canvas
     const canvas = document.getElementById('canvas');
     if (canvas) (canvas as HTMLCanvasElement).style.display = 'none';
-    
+
     // Reset file input
     const fileInput = document.getElementById('fileInput');
     if (fileInput) (fileInput as HTMLInputElement).value = '';
@@ -209,7 +213,7 @@ export class UIControlManager implements IUIControlManager {
    */
   updateControls(state: AppState): void {
     this.currentState = state;
-    
+
     // Update all managers with the new state
     this.imageManager.updateControls(state);
     this.colorControlManager.updateControls(state);
@@ -220,4 +224,14 @@ export class UIControlManager implements IUIControlManager {
     this.vectorControlManager.updateControls(state);
     this.exportManager.updateControls(state);
   }
+
+  // Satisfy BaseManager contract
+  public bindEvents(): void {
+    // No-op: UIControlManager orchestrates other managers
+  }
+
+  protected updateControlsInternal(): void {
+    // No-op: UIControlManager delegates control updates to child managers
+  }
+
 }

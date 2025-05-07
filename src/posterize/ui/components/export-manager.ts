@@ -29,10 +29,7 @@ export class ExportManager extends BaseManager implements IExportManager {
       actionButtonsContainer
     };
 
-    // Create reset button in action buttons container
-    if (actionButtonsContainer) {
-      this.createResetButton(actionButtonsContainer);
-    }
+
 
     // Create export buttons
     if (exportButtonsContainer) {
@@ -40,26 +37,7 @@ export class ExportManager extends BaseManager implements IExportManager {
     }
   }
 
-  /**
-   * Create reset button
-   */
-  private createResetButton(container: HTMLElement): void {
-    const resetBtn = document.createElement('button');
-    resetBtn.id = 'resetBtn';
-    resetBtn.className = 'action-button';
-    resetBtn.textContent = 'Reset';
-    resetBtn.style.backgroundColor = '#ef4444';
-    resetBtn.style.color = 'white';
-    resetBtn.style.padding = '8px 12px';
-    resetBtn.style.border = 'none';
-    resetBtn.style.borderRadius = '4px';
-    resetBtn.style.cursor = 'pointer';
 
-    container.appendChild(resetBtn);
-
-    // Store reference
-    this.elements.resetBtn = resetBtn;
-  }
 
   /**
    * Create export buttons
