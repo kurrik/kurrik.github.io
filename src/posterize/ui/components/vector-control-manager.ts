@@ -678,8 +678,58 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
     const { layerControls } = this.elements;
     if (!layerControls) return;
 
-    // Clear existing controls
-    layerControls.innerHTML = '';
+    // Ensure persistent show/hide all controls are always visible
+    let btnsContainer = layerControls.querySelector('.show-hide-all-btns') as HTMLDivElement | null;
+    if (!btnsContainer) {
+      btnsContainer = document.createElement('div');
+      btnsContainer.className = 'show-hide-all-btns';
+      btnsContainer.style.display = 'flex';
+      btnsContainer.style.gap = '8px';
+      btnsContainer.style.marginBottom = '10px';
+      layerControls.prepend(btnsContainer);
+    }
+    // Only add buttons if not already present
+    if (!btnsContainer.querySelector('.show-all')) {
+      const showAllBtn = document.createElement('button');
+      showAllBtn.textContent = 'Show All Layers';
+      showAllBtn.className = 'export-button show-all';
+      showAllBtn.style.backgroundColor = '#3b82f6';
+      showAllBtn.style.color = 'white';
+      showAllBtn.style.padding = '8px 12px';
+      showAllBtn.style.border = 'none';
+      showAllBtn.style.borderRadius = '4px';
+      showAllBtn.style.cursor = 'pointer';
+      showAllBtn.onclick = () => {
+        this.vectorOutputService.setAllLayersVisibility(true);
+        const currentOutput = this.vectorOutputService.getVectorOutput();
+        if (currentOutput) this.renderVectorPreview(currentOutput);
+      };
+      btnsContainer.appendChild(showAllBtn);
+    }
+    if (!btnsContainer.querySelector('.hide-all')) {
+      const hideAllBtn = document.createElement('button');
+      hideAllBtn.textContent = 'Hide All Layers';
+      hideAllBtn.className = 'export-button hide-all';
+      hideAllBtn.style.backgroundColor = '#10b981';
+      hideAllBtn.style.color = 'white';
+      hideAllBtn.style.padding = '8px 12px';
+      hideAllBtn.style.border = 'none';
+      hideAllBtn.style.borderRadius = '4px';
+      hideAllBtn.style.cursor = 'pointer';
+      hideAllBtn.onclick = () => {
+        this.vectorOutputService.setAllLayersVisibility(false);
+        const currentOutput = this.vectorOutputService.getVectorOutput();
+        if (currentOutput) this.renderVectorPreview(currentOutput);
+      };
+      btnsContainer.appendChild(hideAllBtn);
+    }
+
+    // Clear existing controls (but do not remove persistent buttons)
+    Array.from(layerControls.children).forEach(child => {
+      if (!(child as HTMLElement).classList.contains('show-hide-all-btns')) {
+        layerControls.removeChild(child);
+      }
+    });
 
     // Always use the latest vector output from the service; do not store a stale reference
     // this.lastVectorOutput = vectorOutput; // REMOVE this line
