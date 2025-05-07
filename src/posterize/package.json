@@ -10,7 +10,9 @@
   },
   "author": "kurrik",
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "@techstark/opencv-js": "^4.10.0-release.1"
+  },
   "devDependencies": {
     "typescript": "^5.0.0"
   }
