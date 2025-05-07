@@ -77,6 +77,10 @@ class PosterizeApp {
     );
     this.layerPanelManager = new LayerPanelManager();
     this.previewManager = new PreviewManager();
+    
+    // Expose components to window global for inter-component communication
+    window.previewManager = this.previewManager;
+    window.layerPanelManager = this.layerPanelManager;
   }
   
   /**
@@ -116,6 +120,11 @@ class PosterizeApp {
     if (!vectorPreviewBtn) {
       console.error('Vector preview button not found');
       return;
+    }
+    
+    // Check if we already have a crossHatchPreviewBtn button
+    if (document.getElementById('crossHatchPreviewBtn')) {
+      return; // Button already exists
     }
     
     // Create cross-hatching button
