@@ -4,6 +4,7 @@
 import { BaseManager } from './base-manager';
 import { IBorderControlManager } from '../../types/manager-interfaces';
 import { StateManagementService } from '../../application/services/state-management-service';
+import { UIControlFactory } from './ui-control-factory';
 
 export class BorderControlManager extends BaseManager implements IBorderControlManager {
   constructor(stateManagementService: StateManagementService) {
@@ -33,69 +34,21 @@ export class BorderControlManager extends BaseManager implements IBorderControlM
    */
   private createBorderControls(container: HTMLElement): void {
     // Create header
-    const header = document.createElement('div');
-    header.className = 'control-header';
-    header.textContent = 'Border Settings';
-    header.style.fontWeight = 'bold';
-    header.style.marginBottom = '10px';
-    header.style.marginTop = '15px';
+    const header = UIControlFactory.createSectionHeader('Border Settings');
     container.appendChild(header);
     
-    // Create border toggle control group
-    const toggleGroup = document.createElement('div');
-    toggleGroup.className = 'control-group';
-    toggleGroup.style.marginBottom = '10px';
-    toggleGroup.style.display = 'flex';
-    toggleGroup.style.alignItems = 'center';
-    
-    // Create border toggle checkbox
-    const borderToggle = document.createElement('input');
-    borderToggle.type = 'checkbox';
-    borderToggle.id = 'borderToggle';
-    borderToggle.checked = this.currentState.posterizeSettings.borderSettings.enabled;
-    borderToggle.style.marginRight = '10px';
-    
-    // Create border toggle label
-    const toggleLabel = document.createElement('label');
-    toggleLabel.htmlFor = 'borderToggle';
-    toggleLabel.textContent = 'Enable Borders';
-    
-    // Assemble toggle group
-    toggleGroup.appendChild(borderToggle);
-    toggleGroup.appendChild(toggleLabel);
-    container.appendChild(toggleGroup);
-    
-    // Create border thickness control group
-    const thicknessGroup = document.createElement('div');
-    thicknessGroup.className = 'slider-group';
+    // Create border thickness slider with integrated checkbox
+    const { group: thicknessGroup, slider: thicknessSlider, checkbox: borderToggle, valueDisplay: thicknessValue } = 
+      UIControlFactory.createSliderWithCheckbox(
+        'borderThickness',
+        'Border Thickness',
+        this.currentState.posterizeSettings.borderSettings.thickness,
+        1,
+        10,
+        this.currentState.posterizeSettings.borderSettings.enabled,
+        1
+      );
     thicknessGroup.style.marginBottom = '15px';
-    
-    // Create border thickness label
-    const thicknessLabel = document.createElement('label');
-    thicknessLabel.htmlFor = 'borderThickness';
-    thicknessLabel.textContent = 'Border Thickness: ';
-    
-    // Create border thickness value display
-    const thicknessValue = document.createElement('span');
-    thicknessValue.id = 'borderThicknessLabel';
-    thicknessValue.textContent = this.currentState.posterizeSettings.borderSettings.thickness.toString();
-    thicknessLabel.appendChild(thicknessValue);
-    
-    // Create border thickness slider
-    const thicknessSlider = document.createElement('input');
-    thicknessSlider.type = 'range';
-    thicknessSlider.id = 'borderThickness';
-    thicknessSlider.min = '1';
-    thicknessSlider.max = '10';
-    thicknessSlider.step = '1';
-    thicknessSlider.value = this.currentState.posterizeSettings.borderSettings.thickness.toString();
-    thicknessSlider.disabled = !this.currentState.posterizeSettings.borderSettings.enabled;
-    thicknessSlider.style.width = '100%';
-    
-    // Assemble thickness group
-    thicknessGroup.appendChild(thicknessLabel);
-    thicknessGroup.appendChild(document.createElement('br'));
-    thicknessGroup.appendChild(thicknessSlider);
     container.appendChild(thicknessGroup);
     
     // Store references

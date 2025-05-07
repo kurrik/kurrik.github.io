@@ -6,6 +6,7 @@ import { ICropControlManager } from '../../types/manager-interfaces';
 import { StateManagementService } from '../../application/services/state-management-service';
 import { AspectRatioSetting } from '../../types/interfaces';
 import { ImageManager } from './image-manager';
+import { UIControlFactory } from './ui-control-factory';
 
 export class CropControlManager extends BaseManager implements ICropControlManager {
   private imageManager: ImageManager;
@@ -41,34 +42,10 @@ export class CropControlManager extends BaseManager implements ICropControlManag
    */
   private createAspectRatioControls(container: HTMLElement): void {
     // Create header
-    const header = document.createElement('div');
-    header.className = 'control-header';
-    header.textContent = 'Image Dimensions';
-    header.style.fontWeight = 'bold';
-    header.style.marginBottom = '10px';
-    header.style.marginTop = '15px';
+    const header = UIControlFactory.createSectionHeader('Image Dimensions');
     container.appendChild(header);
     
-    // Create aspect ratio control group
-    const aspectRatioGroup = document.createElement('div');
-    aspectRatioGroup.className = 'control-group';
-    aspectRatioGroup.style.marginBottom = '15px';
-    
-    // Create aspect ratio label
-    const aspectRatioLabel = document.createElement('label');
-    aspectRatioLabel.htmlFor = 'aspectRatio';
-    aspectRatioLabel.textContent = 'Aspect Ratio:';
-    aspectRatioLabel.style.display = 'block';
-    aspectRatioLabel.style.marginBottom = '5px';
-    aspectRatioGroup.appendChild(aspectRatioLabel);
-    
-    // Create aspect ratio select
-    const aspectRatioSelect = document.createElement('select');
-    aspectRatioSelect.id = 'aspectRatio';
-    aspectRatioSelect.style.width = '100%';
-    aspectRatioSelect.style.padding = '5px';
-    
-    // Add options
+    // Create aspect ratio dropdown using the factory
     const aspectRatioOptions = [
       { value: 'original', text: 'Original' },
       { value: '1:1', text: 'Square (1:1)' },
@@ -77,49 +54,28 @@ export class CropControlManager extends BaseManager implements ICropControlManag
       { value: '8.5:11', text: 'Letter (8.5:11)' }
     ];
     
-    aspectRatioOptions.forEach(option => {
-      const optionElement = document.createElement('option');
-      optionElement.value = option.value;
-      optionElement.textContent = option.text;
-      aspectRatioSelect.appendChild(optionElement);
-    });
-    
-    aspectRatioGroup.appendChild(aspectRatioSelect);
+    const { group: aspectRatioGroup, select: aspectRatioSelect } = UIControlFactory.createDropdownControl(
+      'aspectRatio',
+      'Aspect Ratio',
+      aspectRatioOptions,
+      'original'
+    );
+    aspectRatioGroup.style.marginBottom = '15px';
     container.appendChild(aspectRatioGroup);
     
-    // Create crop mode control group
-    const cropModeGroup = document.createElement('div');
-    cropModeGroup.className = 'control-group';
-    cropModeGroup.style.marginBottom = '15px';
-    
-    // Create crop mode label
-    const cropModeLabel = document.createElement('label');
-    cropModeLabel.htmlFor = 'cropMode';
-    cropModeLabel.textContent = 'Fit Mode:';
-    cropModeLabel.style.display = 'block';
-    cropModeLabel.style.marginBottom = '5px';
-    cropModeGroup.appendChild(cropModeLabel);
-    
-    // Create crop mode select
-    const cropModeSelect = document.createElement('select');
-    cropModeSelect.id = 'cropMode';
-    cropModeSelect.style.width = '100%';
-    cropModeSelect.style.padding = '5px';
-    
-    // Add options
+    // Create crop mode dropdown using the factory
     const cropModeOptions = [
       { value: 'crop', text: 'Crop to Fill' },
       { value: 'fit', text: 'Fit (Letterbox)' }
     ];
     
-    cropModeOptions.forEach(option => {
-      const optionElement = document.createElement('option');
-      optionElement.value = option.value;
-      optionElement.textContent = option.text;
-      cropModeSelect.appendChild(optionElement);
-    });
-    
-    cropModeGroup.appendChild(cropModeSelect);
+    const { group: cropModeGroup, select: cropModeSelect } = UIControlFactory.createDropdownControl(
+      'cropMode',
+      'Fit Mode',
+      cropModeOptions,
+      'fit'
+    );
+    cropModeGroup.style.marginBottom = '15px';
     container.appendChild(cropModeGroup);
     
     // Store references

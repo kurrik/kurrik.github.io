@@ -46,6 +46,12 @@
       border-color: #0074d9;
       color: #0074d9;
     }
+    select {
+      width: 100%;
+      padding: 5px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
     canvas {
       margin: 18px 0 12px 0;
       border-radius: 4px;
@@ -62,32 +68,51 @@
     }
     .slider-group {
       margin-bottom: 12px;
-      display: flex;
+      display: grid;
+      grid-template-columns: 170px 1fr;
       align-items: center;
-      flex-wrap: wrap;
-      gap: 10px 14px;
+      gap: 8px;
+    }
+    
+    .control-group {
+      margin-bottom: 12px;
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      align-items: center;
+      gap: 8px;
+    }
+    .control-header {
+      margin: 15px 0 10px 0;
+      font-weight: bold;
+      grid-column: 1 / -1;
     }
     label {
       font-size: 15px;
-      margin-right: 8px;
       white-space: nowrap;
+      text-align: right;
+      padding-right: 12px;
+    }
+    input[type="checkbox"] {
+      margin-left: 0;
+      justify-self: start;
     }
     input[type="range"] {
-      width: 160px;
+      width: 100%;
       min-width: 120px;
-      max-width: 220px;
     }
     .thresholds {
       margin-top: 8px;
       width: 100%;
     }
     .threshold-slider {
-      display: flex;
+      display: grid;
+      grid-template-columns: 170px 1fr;
       align-items: center;
-      margin-bottom: 6px;
+      margin-bottom: 12px;
     }
     .threshold-slider label {
-      min-width: 80px;
+      text-align: right;
+      padding-right: 12px;
     }
     .footer {
       margin-top: 18px;

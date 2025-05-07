@@ -4,6 +4,7 @@
 import { BaseManager } from './base-manager';
 import { IColorControlManager } from '../../types/manager-interfaces';
 import { StateManagementService } from '../../application/services/state-management-service';
+import { UIControlFactory } from './ui-control-factory';
 
 export class ColorControlManager extends BaseManager implements IColorControlManager {
   constructor(stateManagementService: StateManagementService) {
@@ -55,35 +56,24 @@ export class ColorControlManager extends BaseManager implements IColorControlMan
    * Create color count control
    */
   private createColorCountControl(container: HTMLElement): void {
-    // Create container
-    const controlGroup = document.createElement('div');
-    controlGroup.className = 'slider-group';
-    controlGroup.style.marginBottom = '15px';
+    // Create header
+    const header = UIControlFactory.createSectionHeader('Color Thresholds');
+    container.appendChild(header);
     
-    // Create label
-    const label = document.createElement('label');
-    label.htmlFor = 'colorCount';
-    label.textContent = 'Color Count: ';
+    // Create color count slider using the factory
+    const { group, slider, valueDisplay } = UIControlFactory.createSliderControl(
+      'colorCount',
+      'Color Count',
+      this.currentState.posterizeSettings.colorCount,
+      2,
+      8,
+      1
+    );
     
-    // Create value display
-    const valueDisplay = document.createElement('span');
-    valueDisplay.id = 'colorCountLabel';
-    valueDisplay.textContent = this.currentState.posterizeSettings.colorCount.toString();
-    label.appendChild(valueDisplay);
-    
-    // Create slider
-    const slider = document.createElement('input');
-    slider.type = 'range';
-    slider.id = 'colorCount';
-    slider.min = '2';
-    slider.max = '8';
-    slider.step = '1';
-    slider.value = this.currentState.posterizeSettings.colorCount.toString();
-    
-    // Assemble
-    controlGroup.appendChild(label);
-    controlGroup.appendChild(slider);
-    container.appendChild(controlGroup);
+    // Add to container
+    group.className = 'threshold-slider';
+    group.style.marginBottom = '12px';
+    container.appendChild(group);
     
     // Store references
     this.elements.colorCountSlider = slider;
@@ -139,14 +129,6 @@ export class ColorControlManager extends BaseManager implements IColorControlMan
 
     // Clear existing controls
     thresholdControlsContainer.innerHTML = '';
-
-    // Create header
-    const header = document.createElement('div');
-    header.className = 'control-header';
-    header.textContent = 'Color Thresholds';
-    header.style.fontWeight = 'bold';
-    header.style.marginBottom = '10px';
-    thresholdControlsContainer.appendChild(header);
     
     // Create container for threshold sliders
     const thresholdControls = document.createElement('div');
@@ -161,32 +143,28 @@ export class ColorControlManager extends BaseManager implements IColorControlMan
 
     // Create sliders for each threshold
     for (let i = 0; i < colorCount - 1; i++) {
-      const group = document.createElement('div');
-      group.className = 'threshold-slider';
-      group.style.marginBottom = '10px';
-
-      const label = document.createElement('label');
-      label.innerText = `Threshold ${i + 1}: `;
-
-      const slider = document.createElement('input');
-      slider.type = 'range';
-      slider.min = '0';
-      slider.max = '255';
-      slider.value = thresholds[i].toString();
-      slider.step = '1';
-      slider.style.width = '100%';
-
-      const value = document.createElement('span');
-      value.innerText = slider.value;
-      value.style.marginLeft = '5px';
-
+      const threshold = thresholds[i] || Math.round(255 * (i + 1) / colorCount);
+      
+      // Create threshold slider using the factory
+      const { group, slider, valueDisplay } = UIControlFactory.createSliderControl(
+        `threshold${i+1}`,
+        `Threshold ${i+1}`,
+        threshold,
+        1,
+        254,
+        1
+      );
+      
       // Add event listener
-      slider.addEventListener('input', () => {
-        const val = parseInt(slider.value, 10);
-        value.innerText = val.toString();
-
-        // Update threshold value
-        this.currentState.posterizeSettings.thresholds[i] = val;
+      slider.addEventListener('input', (e) => {
+        const target = e.target as HTMLInputElement;
+        const value = parseInt(target.value, 10);
+        
+        // Update display
+        valueDisplay.textContent = value.toString();
+        
+        // Update state
+        this.currentState.posterizeSettings.thresholds[i] = value;
         this.stateManagementService.saveState(this.currentState);
         
         // Signal that image needs to be reprocessed
@@ -197,15 +175,14 @@ export class ColorControlManager extends BaseManager implements IColorControlMan
         const vectorPreviewEvent = new CustomEvent('posterize:generateVectorPreview');
         document.dispatchEvent(vectorPreviewEvent);
       });
-
-      // Add elements to group
-      group.appendChild(label);
-      group.appendChild(value);
-      group.appendChild(document.createElement('br'));
-      group.appendChild(slider);
-
-      // Add group to controls
+      
+      // Add to container
+      group.className = 'threshold-slider';
       thresholdControls.appendChild(group);
+      
+      // Store references
+      this.elements[`thresholdSlider${i+1}`] = slider;
+      this.elements[`thresholdLabel${i+1}`] = valueDisplay;
     }
   }
 }

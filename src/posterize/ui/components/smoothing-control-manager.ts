@@ -4,6 +4,7 @@
 import { BaseManager } from './base-manager';
 import { ISmoothingControlManager } from '../../types/manager-interfaces';
 import { StateManagementService } from '../../application/services/state-management-service';
+import { UIControlFactory } from './ui-control-factory';
 
 export class SmoothingControlManager extends BaseManager implements ISmoothingControlManager {
   constructor(stateManagementService: StateManagementService) {
@@ -33,69 +34,21 @@ export class SmoothingControlManager extends BaseManager implements ISmoothingCo
    */
   private createSmoothingControls(container: HTMLElement): void {
     // Create header
-    const header = document.createElement('div');
-    header.className = 'control-header';
-    header.textContent = 'Curve Smoothing';
-    header.style.fontWeight = 'bold';
-    header.style.marginBottom = '10px';
-    header.style.marginTop = '15px';
+    const header = UIControlFactory.createSectionHeader('Curve Smoothing');
     container.appendChild(header);
     
-    // Create smoothing toggle control group
-    const toggleGroup = document.createElement('div');
-    toggleGroup.className = 'control-group';
-    toggleGroup.style.marginBottom = '10px';
-    toggleGroup.style.display = 'flex';
-    toggleGroup.style.alignItems = 'center';
-    
-    // Create smoothing toggle checkbox
-    const smoothEnable = document.createElement('input');
-    smoothEnable.type = 'checkbox';
-    smoothEnable.id = 'smoothEnable';
-    smoothEnable.checked = this.currentState.posterizeSettings.smoothSettings.enabled;
-    smoothEnable.style.marginRight = '10px';
-    
-    // Create smoothing toggle label
-    const toggleLabel = document.createElement('label');
-    toggleLabel.htmlFor = 'smoothEnable';
-    toggleLabel.textContent = 'Enable Curve Smoothing';
-    
-    // Assemble toggle group
-    toggleGroup.appendChild(smoothEnable);
-    toggleGroup.appendChild(toggleLabel);
-    container.appendChild(toggleGroup);
-    
-    // Create smoothing strength control group
-    const strengthGroup = document.createElement('div');
-    strengthGroup.className = 'slider-group';
+    // Create smoothing strength slider with integrated checkbox
+    const { group: strengthGroup, slider: strengthSlider, checkbox: smoothEnable, valueDisplay: strengthValue } = 
+      UIControlFactory.createSliderWithCheckbox(
+        'smoothStrength',
+        'Smoothing Strength',
+        this.currentState.posterizeSettings.smoothSettings.strength,
+        1,
+        10,
+        this.currentState.posterizeSettings.smoothSettings.enabled,
+        1
+      );
     strengthGroup.style.marginBottom = '15px';
-    
-    // Create smoothing strength label
-    const strengthLabel = document.createElement('label');
-    strengthLabel.htmlFor = 'smoothStrength';
-    strengthLabel.textContent = 'Smoothing Strength: ';
-    
-    // Create smoothing strength value display
-    const strengthValue = document.createElement('span');
-    strengthValue.id = 'smoothStrengthLabel';
-    strengthValue.textContent = this.currentState.posterizeSettings.smoothSettings.strength.toString();
-    strengthLabel.appendChild(strengthValue);
-    
-    // Create smoothing strength slider
-    const strengthSlider = document.createElement('input');
-    strengthSlider.type = 'range';
-    strengthSlider.id = 'smoothStrength';
-    strengthSlider.min = '1';
-    strengthSlider.max = '10';
-    strengthSlider.step = '1';
-    strengthSlider.value = this.currentState.posterizeSettings.smoothSettings.strength.toString();
-    strengthSlider.disabled = !this.currentState.posterizeSettings.smoothSettings.enabled;
-    strengthSlider.style.width = '100%';
-    
-    // Assemble strength group
-    strengthGroup.appendChild(strengthLabel);
-    strengthGroup.appendChild(document.createElement('br'));
-    strengthGroup.appendChild(strengthSlider);
     container.appendChild(strengthGroup);
     
     // Store references
