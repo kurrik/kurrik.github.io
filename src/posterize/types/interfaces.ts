@@ -78,6 +78,11 @@ export enum VectorType {
   CROSSHATCHED = 'crosshatched'
 }
 
+export enum StrategyType {
+  STENCIL = 'stencil',
+  PEN_DRAWING = 'pen_drawing'
+}
+
 export interface VectorSettings {
   type: VectorType;
   curveSmoothing: number;
@@ -136,7 +141,20 @@ export interface ISmoothingService {
   smoothBuckets(buckets: Uint8Array, width: number, height: number, colorCount: number, iterations: number): void;
 }
 
+export interface IVectorConversionStrategy {
+  strategyType: StrategyType;
+  displayName: string;
+  description: string;
+  convert(buckets: Uint8Array, dimensions: ImageDimensions, settings: VectorSettings): VectorOutput;
+  getContextualSettings(): Record<string, any>;
+}
+
 export interface IVectorConversionService {
+  registerStrategy(strategy: IVectorConversionStrategy): void;
+  getStrategy(strategyType: StrategyType): IVectorConversionStrategy;
+  getAvailableStrategies(): IVectorConversionStrategy[];
+  setActiveStrategy(strategyType: StrategyType): void;
+  getActiveStrategy(): IVectorConversionStrategy;
   convert(request: VectorConversionRequest): VectorConversionResult;
 }
 

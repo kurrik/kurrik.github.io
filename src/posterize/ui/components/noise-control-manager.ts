@@ -11,14 +11,97 @@ export class NoiseControlManager extends BaseManager implements INoiseControlMan
   }
 
   /**
-   * Initialize element references
+   * Initialize element references and create UI controls
    */
   protected initializeElementReferences(): void {
+    // Get container for noise controls
+    const noiseControlsContainer = document.getElementById('noiseControlsContainer');
+    
+    // Initialize elements references
     this.elements = {
-      noiseEnable: document.getElementById('noiseEnable'),
-      noiseThreshold: document.getElementById('noiseThreshold'),
-      noiseThresholdLabel: document.getElementById('noiseThresholdLabel')
+      noiseControlsContainer
     };
+    
+    // Create noise controls
+    if (noiseControlsContainer) {
+      this.createNoiseControls(noiseControlsContainer);
+    }
+  }
+  
+  /**
+   * Create noise removal controls
+   */
+  private createNoiseControls(container: HTMLElement): void {
+    // Create header
+    const header = document.createElement('div');
+    header.className = 'control-header';
+    header.textContent = 'Noise Removal';
+    header.style.fontWeight = 'bold';
+    header.style.marginBottom = '10px';
+    header.style.marginTop = '15px';
+    container.appendChild(header);
+    
+    // Create noise toggle control group
+    const toggleGroup = document.createElement('div');
+    toggleGroup.className = 'control-group';
+    toggleGroup.style.marginBottom = '10px';
+    toggleGroup.style.display = 'flex';
+    toggleGroup.style.alignItems = 'center';
+    
+    // Create noise toggle checkbox
+    const noiseEnable = document.createElement('input');
+    noiseEnable.type = 'checkbox';
+    noiseEnable.id = 'noiseEnable';
+    noiseEnable.checked = this.currentState.posterizeSettings.noiseSettings.enabled;
+    noiseEnable.style.marginRight = '10px';
+    
+    // Create noise toggle label
+    const toggleLabel = document.createElement('label');
+    toggleLabel.htmlFor = 'noiseEnable';
+    toggleLabel.textContent = 'Remove Small Regions';
+    
+    // Assemble toggle group
+    toggleGroup.appendChild(noiseEnable);
+    toggleGroup.appendChild(toggleLabel);
+    container.appendChild(toggleGroup);
+    
+    // Create noise threshold control group
+    const thresholdGroup = document.createElement('div');
+    thresholdGroup.className = 'slider-group';
+    thresholdGroup.style.marginBottom = '15px';
+    
+    // Create noise threshold label
+    const thresholdLabel = document.createElement('label');
+    thresholdLabel.htmlFor = 'noiseThreshold';
+    thresholdLabel.textContent = 'Min Region Size: ';
+    
+    // Create noise threshold value display
+    const thresholdValue = document.createElement('span');
+    thresholdValue.id = 'noiseThresholdLabel';
+    thresholdValue.textContent = this.currentState.posterizeSettings.noiseSettings.minRegionSize.toString();
+    thresholdLabel.appendChild(thresholdValue);
+    
+    // Create noise threshold slider
+    const thresholdSlider = document.createElement('input');
+    thresholdSlider.type = 'range';
+    thresholdSlider.id = 'noiseThreshold';
+    thresholdSlider.min = '10';
+    thresholdSlider.max = '500';
+    thresholdSlider.step = '10';
+    thresholdSlider.value = this.currentState.posterizeSettings.noiseSettings.minRegionSize.toString();
+    thresholdSlider.disabled = !this.currentState.posterizeSettings.noiseSettings.enabled;
+    thresholdSlider.style.width = '100%';
+    
+    // Assemble threshold group
+    thresholdGroup.appendChild(thresholdLabel);
+    thresholdGroup.appendChild(document.createElement('br'));
+    thresholdGroup.appendChild(thresholdSlider);
+    container.appendChild(thresholdGroup);
+    
+    // Store references
+    this.elements.noiseEnable = noiseEnable;
+    this.elements.noiseThreshold = thresholdSlider;
+    this.elements.noiseThresholdLabel = thresholdValue;
   }
 
   /**

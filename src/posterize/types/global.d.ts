@@ -2,13 +2,17 @@
  * Global declarations for the Posterize application
  */
 
-import { PreviewManager } from '../ui/components/preview-manager';
-import { LayerPanelManager } from '../ui/components/layer-panel-manager';
+import { VectorOutput } from './interfaces';
 
 declare global {
   interface Window {
-    previewManager: PreviewManager;
-    layerPanelManager: LayerPanelManager;
+    previewManager?: {
+      renderVectorPreview: (vectorOutput: VectorOutput) => void;
+      getVectorOutput: () => VectorOutput | null;
+    };
+    layerPanelManager?: {
+      createLayerControls: (vectorOutput: VectorOutput) => void;
+    };
     // Add this to tell TypeScript that CV will be available globally once opencv.js loads
     cv: any;
     onOpenCvReady: () => void;

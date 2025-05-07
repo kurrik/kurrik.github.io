@@ -12,20 +12,133 @@ export class ExportManager extends BaseManager implements IExportManager {
   }
 
   /**
-   * Initialize element references
+   * Initialize element references and create UI controls
    */
   protected initializeElementReferences(): void {
+    // Get containers
+    const exportButtonsContainer = document.getElementById('exportButtonsContainer');
+    const actionButtonsContainer = document.getElementById('actionButtonsContainer');
+    
+    // Initialize elements references
     this.elements = {
-      downloadSvgBtn: document.getElementById('downloadSvgBtn'),
-      downloadZipBtn: document.getElementById('downloadZipBtn')
+      exportButtonsContainer,
+      actionButtonsContainer
     };
+    
+    // Create reset button in action buttons container
+    if (actionButtonsContainer) {
+      this.createResetButton(actionButtonsContainer);
+    }
+    
+    // Create export buttons
+    if (exportButtonsContainer) {
+      this.createExportButtons(exportButtonsContainer);
+    }
+  }
+  
+  /**
+   * Create reset button
+   */
+  private createResetButton(container: HTMLElement): void {
+    const resetBtn = document.createElement('button');
+    resetBtn.id = 'resetBtn';
+    resetBtn.className = 'action-button';
+    resetBtn.textContent = 'Reset';
+    resetBtn.style.backgroundColor = '#ef4444';
+    resetBtn.style.color = 'white';
+    resetBtn.style.padding = '8px 12px';
+    resetBtn.style.border = 'none';
+    resetBtn.style.borderRadius = '4px';
+    resetBtn.style.cursor = 'pointer';
+    
+    container.appendChild(resetBtn);
+    
+    // Store reference
+    this.elements.resetBtn = resetBtn;
+  }
+  
+  /**
+   * Create export buttons
+   */
+  private createExportButtons(container: HTMLElement): void {
+    // Create download SVG button
+    const downloadSvgBtn = document.createElement('button');
+    downloadSvgBtn.id = 'downloadSvgBtn';
+    downloadSvgBtn.className = 'export-button';
+    downloadSvgBtn.textContent = 'Download SVG';
+    downloadSvgBtn.style.backgroundColor = '#3b82f6';
+    downloadSvgBtn.style.color = 'white';
+    downloadSvgBtn.style.padding = '8px 12px';
+    downloadSvgBtn.style.margin = '0 5px';
+    downloadSvgBtn.style.border = 'none';
+    downloadSvgBtn.style.borderRadius = '4px';
+    downloadSvgBtn.style.cursor = 'pointer';
+    
+    // Create download layers as ZIP button
+    const downloadZipBtn = document.createElement('button');
+    downloadZipBtn.id = 'downloadZipBtn';
+    downloadZipBtn.className = 'export-button';
+    downloadZipBtn.textContent = 'Download Layers (ZIP)';
+    downloadZipBtn.style.backgroundColor = '#10b981';
+    downloadZipBtn.style.color = 'white';
+    downloadZipBtn.style.padding = '8px 12px';
+    downloadZipBtn.style.margin = '0 5px';
+    downloadZipBtn.style.border = 'none';
+    downloadZipBtn.style.borderRadius = '4px';
+    downloadZipBtn.style.cursor = 'pointer';
+    
+    // Append buttons to container
+    container.appendChild(downloadSvgBtn);
+    container.appendChild(downloadZipBtn);
+    
+    // Store references
+    this.elements.downloadSvgBtn = downloadSvgBtn;
+    this.elements.downloadZipBtn = downloadZipBtn;
+    
+    // Bind events immediately
+    this.bindExportButtonEvents();
   }
 
   /**
    * Bind export-related events
    */
   public bindEvents(): void {
-    // Buttons will be bound when vector preview is generated
+    this.bindExportButtonEvents();
+  }
+  
+  /**
+   * Bind events to export buttons
+   */
+  private bindExportButtonEvents(): void {
+    const { downloadSvgBtn, downloadZipBtn } = this.elements;
+    
+    if (downloadSvgBtn) {
+      downloadSvgBtn.addEventListener('click', () => {
+        // Check if we have vector output from preview manager
+        if (window.previewManager && window.previewManager.getVectorOutput) {
+          const vectorOutput = window.previewManager.getVectorOutput();
+          if (vectorOutput) {
+            this.downloadSvgFile(vectorOutput);
+          } else {
+            alert('No vector preview available. Generate a preview first.');
+          }
+        }
+      });
+    }
+    
+    if (downloadZipBtn) {
+      downloadZipBtn.addEventListener('click', () => {
+        // Check if we have vector output from preview manager
+        if (window.previewManager && window.previewManager.getVectorOutput) {
+          const vectorOutput = window.previewManager.getVectorOutput();
+          if (vectorOutput) {
+            this.downloadLayersAsZip(vectorOutput);
+          } else {
+            alert('No vector preview available. Generate a preview first.');
+          }
+        }
+      });
+    }
   }
 
   /**

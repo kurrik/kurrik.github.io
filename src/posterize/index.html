@@ -105,92 +105,52 @@
       Drag & Drop Image Here<br>or Click to Select
       <input type="file" id="fileInput" accept="image/*" style="display:none">
     </div>
-    <canvas id="canvas" width="320" height="180" style="display:none;"></canvas>
-    <div class="controls">
-
-      <div class="slider-group">
-        <label for="colorCount">Colors:</label>
-        <input type="range" id="colorCount" min="2" max="8" value="3">
-        <span id="colorCountLabel">3</span>
-      </div>
-      <div class="thresholds" id="thresholdControls">
-        <!-- Threshold sliders will be injected here -->
-      </div>
-      <div class="slider-group" id="aspectRatioControls">
-        <label for="aspectRatio">Aspect Ratio:</label>
-        <select id="aspectRatio">
-          <option value="1:1">1:1</option>
-          <option value="4:3">4:3</option>
-          <option value="5:3">5:3</option>
-          <option value="4:6">4:6</option>
-          <option value="8.5:11">8.5:11</option>
-        </select>
-      </div>
-      <div class="slider-group" id="cropModeControls">
-        <label for="cropMode">Cropping:</label>
-        <select id="cropMode">
-          <option value="crop">Crop to Aspect Ratio</option>
-          <option value="fit">Fit Entire Image</option>
-        </select>
-      </div>
-      <div class="slider-group" id="borderControls">
-        <label style="display:flex;align-items:center;gap:4px;">
-          <input type="checkbox" id="borderToggle" checked>
-          Border
-        </label>
-        <label for="borderThickness" style="margin-left:12px;">Border Thickness:</label>
-        <input type="range" id="borderThickness" min="1" max="20" value="3">
-        <span id="borderThicknessLabel">3</span>
-      </div>
-      <div class="slider-group" id="noiseControls">
-        <label><input type="checkbox" id="noiseEnable"> Remove Noise</label>
-        <label for="noiseThreshold" style="margin-left:12px;">Min Region Size:</label>
-        <input type="range" id="noiseThreshold" min="1" max="100" value="8" disabled>
-        <span id="noiseThresholdLabel">8</span>
-      </div>
-      <div class="slider-group" id="smoothControls">
-        <label><input type="checkbox" id="smoothEnable"> Smooth Edges</label>
-        <label for="smoothStrength" style="margin-left:12px;">Strength:</label>
-        <input type="range" id="smoothStrength" min="1" max="10" value="2" disabled>
-        <span id="smoothStrengthLabel">2</span>
-      </div>
+    <canvas id="canvas" width="320" height="180" style="display:none;" willReadFrequently></canvas>
+    <!-- Empty container for all controls to be injected by UI components -->
+    <div class="controls" id="controlsContainer">
+      <!-- Color control container -->
+      <div id="colorControlsContainer"></div>
+      
+      <!-- Threshold sliders container -->
+      <div id="thresholdControlsContainer"></div>
+      
+      <!-- Aspect ratio and crop mode container -->
+      <div id="aspectRatioControlsContainer"></div>
+      
+      <!-- Border controls container -->
+      <div id="borderControlsContainer"></div>
+      
+      <!-- Noise removal controls container -->
+      <div id="noiseControlsContainer"></div>
+      
+      <!-- Smoothing controls container -->
+      <div id="smoothControlsContainer"></div>
     </div>
-    <div style="display:flex;gap:12px;margin:12px 0 0 0;">
-      <button id="vectorPreviewBtn">Preview Vector</button>
-      <button id="resetBtn">Reset</button>
-    </div>
+    
+    <!-- Action buttons container -->
+    <div id="actionButtonsContainer" style="display:flex;gap:12px;margin:12px 0 0 0;"></div>
+    
+    <!-- Vector preview container -->
     <div id="vectorPreviewContainer" style="width:100%;margin-top:18px;display:none;flex-direction:column;align-items:center;">
       <div style="margin-bottom:6px;"><b>Vector Preview (SVG):</b></div>
-      <div class="slider-group" id="bezierSliderGroup" style="display:none;max-width:340px;width:100%;margin:0 auto 10px auto;">
-        <label id="bezierSliderLabel" for="bezierSlider">Curve Fit:</label>
-        <input type="range" id="bezierSlider" min="0" max="10" value="3">
-        <span id="bezierSliderValue">3</span>
-      </div>
-
-      <!-- Cross-hatching controls for pen plotter output -->
-      <div class="slider-group" id="crossHatchingControls" style="display:none;max-width:340px;width:100%;margin:0 auto 16px auto;border-top:1px solid #eee;padding-top:12px;">
-        <div style="margin-bottom:8px;font-weight:bold;color:#059669;">Pen Plotter Settings</div>
-        <label style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">
-          <input type="checkbox" id="crossHatchingToggle">
-          <span>Use Cross-Hatching for Tones</span>
-        </label>
-
-        <div style="display:flex;align-items:center;margin-bottom:6px;">
-          <label for="crossHatchingDensity" style="min-width:70px;">Density:</label>
-          <input type="range" id="crossHatchingDensity" min="1" max="10" value="5" disabled>
-          <span id="crossHatchingDensityLabel" style="margin-left:6px;">5</span>
-        </div>
-
-        <div style="display:flex;align-items:center;">
-          <label for="crossHatchingAngle" style="min-width:70px;">Angle:</label>
-          <input type="range" id="crossHatchingAngle" min="0" max="180" value="45" disabled>
-          <span id="crossHatchingAngleLabel" style="margin-left:6px;">45°</span>
-        </div>
-      </div>
-
+      
+      <!-- Strategy selection container -->
+      <div id="strategyControlsContainer"></div>
+      
+      <!-- Stencil strategy specific controls -->
+      <div id="stencilControls" style="display:none;"></div>
+      
+      <!-- Pen drawing strategy specific controls -->
+      <div id="penDrawingControls" style="display:none;"></div>
+      
+      <!-- Vector preview content area -->
       <div id="vectorPreview"></div>
-      <button id="downloadSvgBtn" style="display:block;margin-top:8px;">Download SVG</button>
-      <button id="downloadZipBtn" style="display:block;margin-top:8px;">Download All Layers (ZIP)</button>
+      
+      <!-- Layer controls container -->
+      <div id="layerControls"></div>
+      
+      <!-- Export buttons container -->
+      <div id="exportButtonsContainer" style="margin-top:8px;"></div>
     </div>
     <div class="footer">Drop an image to begin. Adjust colors and thresholds to posterize.</div>
   </div>

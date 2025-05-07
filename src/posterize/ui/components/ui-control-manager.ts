@@ -1,9 +1,10 @@
 /**
  * Main UI Controller that orchestrates specialized UI managers
  */
-import { IUIControlManager, AppState } from '../../types/interfaces';
+import { IUIControlManager, AppState, VectorOutput } from '../../types/interfaces';
 import { ImageProcessingService } from '../../application/services/image-processing-service';
 import { StateManagementService } from '../../application/services/state-management-service';
+import { VectorConversionService } from '../../domain/services/vector-conversion-service';
 import { ImageManager } from './image-manager';
 import { ColorControlManager } from './color-control-manager';
 import { CropControlManager } from './crop-control-manager';
@@ -16,8 +17,13 @@ import { ExportManager } from './export-manager';
 // Declare global interfaces for our app components
 declare global {
   interface Window {
-    previewManager: any;
-    layerPanelManager: any;
+    previewManager?: {
+      renderVectorPreview: (vectorOutput: VectorOutput) => void;
+      getVectorOutput: () => VectorOutput | null;
+    };
+    layerPanelManager?: {
+      createLayerControls: (vectorOutput: VectorOutput) => void;
+    };
     JSZip?: any; // For the JSZip library
   }
 }
@@ -25,6 +31,7 @@ declare global {
 export class UIControlManager implements IUIControlManager {
   private stateManagementService: StateManagementService;
   private imageProcessingService: ImageProcessingService;
+  private vectorConversionService: VectorConversionService = new VectorConversionService();
   private currentState: AppState;
   
   // Specialized managers
@@ -65,7 +72,16 @@ export class UIControlManager implements IUIControlManager {
     this.borderControlManager = new BorderControlManager(this.stateManagementService);
     this.noiseControlManager = new NoiseControlManager(this.stateManagementService);
     this.smoothingControlManager = new SmoothingControlManager(this.stateManagementService);
-    this.vectorControlManager = new VectorControlManager(this.imageProcessingService, this.stateManagementService, this.imageManager);
+    // Initialize VectorConversionService if it doesn't exist yet
+    if (!this.vectorConversionService) {
+      this.vectorConversionService = new VectorConversionService();
+    }
+    this.vectorControlManager = new VectorControlManager(
+      this.imageProcessingService, 
+      this.stateManagementService, 
+      this.imageManager, 
+      this.vectorConversionService
+    );
     this.exportManager = new ExportManager(this.stateManagementService);
     
     // Initialize all managers
@@ -119,7 +135,7 @@ export class UIControlManager implements IUIControlManager {
     
     // Listen for vector preview events
     document.addEventListener('posterize:generateVectorPreview', () => {
-      this.vectorControlManager.generateVectorPreview();
+      this.vectorControlManager.updatePreview();
     });
     
     // Listen for download events

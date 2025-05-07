@@ -123,6 +123,13 @@ export class ImageManager extends BaseManager implements IImageManager {
     const { canvas } = this.elements;
     if (!canvas) return;
 
+    // Important: Hide the vector preview container until the image is fully loaded
+    // This prevents showing empty/invalid SVG rectangles during loading
+    const vectorPreviewContainer = document.getElementById('vectorPreviewContainer');
+    if (vectorPreviewContainer) {
+      vectorPreviewContainer.style.display = 'none';
+    }
+
     const img = new Image();
 
     img.onload = () => {
@@ -164,7 +171,8 @@ export class ImageManager extends BaseManager implements IImageManager {
       this.currentState.originalImageDataUrl = url;
       this.stateManagementService.saveState(this.currentState);
 
-      // Process image
+      // Process image - this will now only trigger the vector preview
+      // after the image is fully loaded and processed
       this.processImage();
     };
 
@@ -209,6 +217,11 @@ export class ImageManager extends BaseManager implements IImageManager {
       0,
       0
     );
+    
+    // After processing the image, automatically trigger vector preview generation
+    // This ensures the SVG preview is shown whenever an image is processed
+    const vectorPreviewEvent = new CustomEvent('posterize:generateVectorPreview');
+    document.dispatchEvent(vectorPreviewEvent);
   }
 
   /**

@@ -5,7 +5,8 @@ import {
   AppState,
   VectorOutput,
   ImageData,
-  ImageProcessingResult
+  ImageProcessingResult,
+  StrategyType
 } from './interfaces';
 import { ImageDataModel } from '../domain/models/image-data';
 
@@ -37,8 +38,11 @@ export interface INoiseControlManager extends IManager {}
 export interface ISmoothingControlManager extends IManager {}
 
 export interface IVectorControlManager extends IManager {
-  generateVectorPreview(): void;
+  bindEvents(): void;
+  updatePreview(): void;
   renderVectorPreview(vectorOutput: VectorOutput): void;
+  setVectorStrategy(strategyType: StrategyType): void;
+  showContextualControls(strategyType: StrategyType): void;
   createVectorLayerControls(vectorOutput: VectorOutput): void;
   generateCrossHatchedPreview(): void;
 }

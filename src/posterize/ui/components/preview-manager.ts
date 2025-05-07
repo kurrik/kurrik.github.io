@@ -13,6 +13,7 @@ export class PreviewManager implements IPreviewManager {
   private vectorPreviewContainer: HTMLElement | null;
   private vectorPreviewElement: HTMLElement | null;
   private ctx: CanvasRenderingContext2D | null = null;
+  private _currentVectorOutput: VectorOutput | null = null;
 
   constructor(
     canvasId: string = 'canvas',
@@ -65,9 +66,18 @@ export class PreviewManager implements IPreviewManager {
   }
 
   /**
+   * Get the current vector output
+   */
+  getVectorOutput(): VectorOutput | null {
+    return this._currentVectorOutput;
+  }
+
+  /**
    * Render vector output as SVG
    */
   renderVectorPreview(vectorOutput: VectorOutput): void {
+    // Store current vector output for later retrieval
+    this._currentVectorOutput = vectorOutput;
     if (!this.vectorPreviewElement || !this.vectorPreviewContainer) return;
     
     // Show vector preview container

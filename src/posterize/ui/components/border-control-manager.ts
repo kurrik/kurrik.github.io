@@ -11,14 +11,97 @@ export class BorderControlManager extends BaseManager implements IBorderControlM
   }
 
   /**
-   * Initialize element references
+   * Initialize element references and create UI controls
    */
   protected initializeElementReferences(): void {
+    // Get container for border controls
+    const borderControlsContainer = document.getElementById('borderControlsContainer');
+    
+    // Initialize elements references
     this.elements = {
-      borderToggle: document.getElementById('borderToggle'),
-      borderThicknessSlider: document.getElementById('borderThickness'),
-      borderThicknessLabel: document.getElementById('borderThicknessLabel')
+      borderControlsContainer
     };
+    
+    // Create border controls
+    if (borderControlsContainer) {
+      this.createBorderControls(borderControlsContainer);
+    }
+  }
+  
+  /**
+   * Create border controls
+   */
+  private createBorderControls(container: HTMLElement): void {
+    // Create header
+    const header = document.createElement('div');
+    header.className = 'control-header';
+    header.textContent = 'Border Settings';
+    header.style.fontWeight = 'bold';
+    header.style.marginBottom = '10px';
+    header.style.marginTop = '15px';
+    container.appendChild(header);
+    
+    // Create border toggle control group
+    const toggleGroup = document.createElement('div');
+    toggleGroup.className = 'control-group';
+    toggleGroup.style.marginBottom = '10px';
+    toggleGroup.style.display = 'flex';
+    toggleGroup.style.alignItems = 'center';
+    
+    // Create border toggle checkbox
+    const borderToggle = document.createElement('input');
+    borderToggle.type = 'checkbox';
+    borderToggle.id = 'borderToggle';
+    borderToggle.checked = this.currentState.posterizeSettings.borderSettings.enabled;
+    borderToggle.style.marginRight = '10px';
+    
+    // Create border toggle label
+    const toggleLabel = document.createElement('label');
+    toggleLabel.htmlFor = 'borderToggle';
+    toggleLabel.textContent = 'Enable Borders';
+    
+    // Assemble toggle group
+    toggleGroup.appendChild(borderToggle);
+    toggleGroup.appendChild(toggleLabel);
+    container.appendChild(toggleGroup);
+    
+    // Create border thickness control group
+    const thicknessGroup = document.createElement('div');
+    thicknessGroup.className = 'slider-group';
+    thicknessGroup.style.marginBottom = '15px';
+    
+    // Create border thickness label
+    const thicknessLabel = document.createElement('label');
+    thicknessLabel.htmlFor = 'borderThickness';
+    thicknessLabel.textContent = 'Border Thickness: ';
+    
+    // Create border thickness value display
+    const thicknessValue = document.createElement('span');
+    thicknessValue.id = 'borderThicknessLabel';
+    thicknessValue.textContent = this.currentState.posterizeSettings.borderSettings.thickness.toString();
+    thicknessLabel.appendChild(thicknessValue);
+    
+    // Create border thickness slider
+    const thicknessSlider = document.createElement('input');
+    thicknessSlider.type = 'range';
+    thicknessSlider.id = 'borderThickness';
+    thicknessSlider.min = '1';
+    thicknessSlider.max = '10';
+    thicknessSlider.step = '1';
+    thicknessSlider.value = this.currentState.posterizeSettings.borderSettings.thickness.toString();
+    thicknessSlider.disabled = !this.currentState.posterizeSettings.borderSettings.enabled;
+    thicknessSlider.style.width = '100%';
+    
+    // Assemble thickness group
+    thicknessGroup.appendChild(thicknessLabel);
+    thicknessGroup.appendChild(document.createElement('br'));
+    thicknessGroup.appendChild(thicknessSlider);
+    container.appendChild(thicknessGroup);
+    
+    // Store references
+    this.elements.borderToggle = borderToggle;
+    this.elements.borderThicknessSlider = thicknessSlider;
+    this.elements.borderThicknessLabel = thicknessValue;
   }
 
   /**

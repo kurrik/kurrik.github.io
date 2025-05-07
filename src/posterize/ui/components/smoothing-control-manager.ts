@@ -11,14 +11,97 @@ export class SmoothingControlManager extends BaseManager implements ISmoothingCo
   }
 
   /**
-   * Initialize element references
+   * Initialize element references and create UI controls
    */
   protected initializeElementReferences(): void {
+    // Get container for smoothing controls
+    const smoothControlsContainer = document.getElementById('smoothControlsContainer');
+    
+    // Initialize elements references
     this.elements = {
-      smoothEnable: document.getElementById('smoothEnable'),
-      smoothStrength: document.getElementById('smoothStrength'),
-      smoothStrengthLabel: document.getElementById('smoothStrengthLabel')
+      smoothControlsContainer
     };
+    
+    // Create smoothing controls
+    if (smoothControlsContainer) {
+      this.createSmoothingControls(smoothControlsContainer);
+    }
+  }
+  
+  /**
+   * Create smoothing controls
+   */
+  private createSmoothingControls(container: HTMLElement): void {
+    // Create header
+    const header = document.createElement('div');
+    header.className = 'control-header';
+    header.textContent = 'Curve Smoothing';
+    header.style.fontWeight = 'bold';
+    header.style.marginBottom = '10px';
+    header.style.marginTop = '15px';
+    container.appendChild(header);
+    
+    // Create smoothing toggle control group
+    const toggleGroup = document.createElement('div');
+    toggleGroup.className = 'control-group';
+    toggleGroup.style.marginBottom = '10px';
+    toggleGroup.style.display = 'flex';
+    toggleGroup.style.alignItems = 'center';
+    
+    // Create smoothing toggle checkbox
+    const smoothEnable = document.createElement('input');
+    smoothEnable.type = 'checkbox';
+    smoothEnable.id = 'smoothEnable';
+    smoothEnable.checked = this.currentState.posterizeSettings.smoothSettings.enabled;
+    smoothEnable.style.marginRight = '10px';
+    
+    // Create smoothing toggle label
+    const toggleLabel = document.createElement('label');
+    toggleLabel.htmlFor = 'smoothEnable';
+    toggleLabel.textContent = 'Enable Curve Smoothing';
+    
+    // Assemble toggle group
+    toggleGroup.appendChild(smoothEnable);
+    toggleGroup.appendChild(toggleLabel);
+    container.appendChild(toggleGroup);
+    
+    // Create smoothing strength control group
+    const strengthGroup = document.createElement('div');
+    strengthGroup.className = 'slider-group';
+    strengthGroup.style.marginBottom = '15px';
+    
+    // Create smoothing strength label
+    const strengthLabel = document.createElement('label');
+    strengthLabel.htmlFor = 'smoothStrength';
+    strengthLabel.textContent = 'Smoothing Strength: ';
+    
+    // Create smoothing strength value display
+    const strengthValue = document.createElement('span');
+    strengthValue.id = 'smoothStrengthLabel';
+    strengthValue.textContent = this.currentState.posterizeSettings.smoothSettings.strength.toString();
+    strengthLabel.appendChild(strengthValue);
+    
+    // Create smoothing strength slider
+    const strengthSlider = document.createElement('input');
+    strengthSlider.type = 'range';
+    strengthSlider.id = 'smoothStrength';
+    strengthSlider.min = '1';
+    strengthSlider.max = '10';
+    strengthSlider.step = '1';
+    strengthSlider.value = this.currentState.posterizeSettings.smoothSettings.strength.toString();
+    strengthSlider.disabled = !this.currentState.posterizeSettings.smoothSettings.enabled;
+    strengthSlider.style.width = '100%';
+    
+    // Assemble strength group
+    strengthGroup.appendChild(strengthLabel);
+    strengthGroup.appendChild(document.createElement('br'));
+    strengthGroup.appendChild(strengthSlider);
+    container.appendChild(strengthGroup);
+    
+    // Store references
+    this.elements.smoothEnable = smoothEnable;
+    this.elements.smoothStrength = strengthSlider;
+    this.elements.smoothStrengthLabel = strengthValue;
   }
 
   /**

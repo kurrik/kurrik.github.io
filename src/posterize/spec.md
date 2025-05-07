@@ -80,12 +80,30 @@ Each stage will be composed of one or more processors that can be chained togeth
 - Handles edge smoothing operations
 
 #### `VectorConversionService`
-- Converts raster data to vector paths
+- Orchestrates various SVG conversion strategies
+- Manages the selection and execution of appropriate strategy
+
+#### SVG Conversion Strategies
+
+##### `IVectorConversionStrategy` (Interface)
+- Defines common methods for all SVG conversion strategies
+- Methods: `convert(buckets, dimensions, settings): VectorOutput`
+- Properties: `strategyType`, `displayName`, `description`
+
+##### `StencilConversionStrategy`
+- Implements standard filled region approach (current implementation)
 - Manages contour detection and simplification
+- Handles layer visibility and styling
+
+##### `PenDrawingConversionStrategy`
+- Implements pen plotter optimized drawings
+- Uses unfilled paths with outline approach
+- May integrate with cross-hatching for tonal representation
 
 #### `CrossHatchingService`
 - Generates cross-hatching patterns to represent tones
 - Configurable density and angle patterns
+- Can be used by different strategies
 
 ### Application Services
 
@@ -118,16 +136,71 @@ Each stage will be composed of one or more processors that can be chained togeth
 ### UI Layer Components
 
 #### `UIControlManager`
-- Maps UI elements to corresponding domain functions
-- Handles event binding and UI state updates
+- Main controller that orchestrates all UI components
+- Manages UI event bindings and delegations
+- Handles automatic preview updates when settings change
 
-#### `LayerPanelManager`
-- Manages the layer controls in the vector preview
-- Handles layer visibility toggling
+#### `ImageUploadComponent`
+- Handles drag-and-drop and file selection
+- Manages image preview display
+
+#### `VectorPreviewComponent`
+- Always visible (no toggle button needed)
+- Automatically updates when settings change
+- Shows SVG preview based on current strategy
+
+#### `StrategySelectionComponent`
+- Dropdown selector for vector conversion strategies
+- Updates UI to show strategy-specific controls
+- Triggers preview regeneration on strategy change
 
 #### `PreviewManager`
 - Handles canvas and SVG preview rendering
 - Manages real-time updates of processed images
+
+## Automatic Preview and Strategy Pattern Implementation
+
+### Always-On SVG Preview
+
+**Objective**: Replace the "Preview Vector" button with an always-visible SVG preview that updates automatically.
+
+**Implementation Plan**:
+- Modify the UI layout to always show the SVG preview section
+- Implement a reactive pattern where changes to any settings trigger preview updates
+- Add efficient update triggers to prevent unnecessary recalculations
+- Use a debounce mechanism for rapid changes to avoid performance issues
+
+### SVG Conversion Strategy Pattern
+
+**Objective**: Implement a strategy pattern for different SVG conversion methods with contextual UI controls.
+
+**Implementation Plan**:
+1. **Core Strategy Interface**
+   - Create `IVectorConversionStrategy` interface
+   - Define common methods and properties for all strategies
+   - Implement a strategy registry for easy lookup and instantiation
+
+2. **Specific Strategies**
+   - **Stencil Strategy** (current implementation)
+     - Filled regions with optional borders
+     - Layer visibility controls
+     - Color customization
+   
+   - **Pen Drawing Strategy**
+     - Outline-based drawing suitable for pen plotters
+     - Cross-hatching for tonal representation
+     - Pen-specific optimization settings
+
+3. **Contextual UI**
+   - Implement a strategy selector in the UI (dropdown)
+   - Create dedicated UI panels for each strategy's controls
+   - Show/hide controls contextually based on selected strategy
+   - Persist strategy selection and settings in app state
+
+4. **Integration**
+   - Update the VectorControlManager to delegate to appropriate strategy
+   - Modify ImageProcessingService to support strategy-based processing
+   - Ensure proper typing and runtime type safety
 
 ## Event Flow
 

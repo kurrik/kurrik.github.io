@@ -3,265 +3,694 @@
  */
 import { BaseManager } from './base-manager';
 import { IVectorControlManager } from '../../types/manager-interfaces';
-import { VectorOutput, VectorLayer, VectorPathData } from '../../types/interfaces';
+import {
+  VectorOutput,
+  VectorLayer,
+  VectorPathData,
+  StrategyType,
+  AppState,
+  VectorSettings
+} from '../../types/interfaces';
+import { VectorConversionService } from '../../domain/services/vector-conversion-service';
 import { StateManagementService } from '../../application/services/state-management-service';
 import { ImageProcessingService } from '../../application/services/image-processing-service';
 import { ImageManager } from './image-manager';
 
+/**
+ * Manager for vector preview functionality
+ * Handles automatic SVG preview updates and strategy selection
+ */
 export class VectorControlManager extends BaseManager implements IVectorControlManager {
   private imageProcessingService: ImageProcessingService;
   private imageManager: ImageManager;
+  private vectorConversionService: VectorConversionService;
+  private debounceTimer: number | null = null;
+  private debounceDelay: number = 300; // ms
+  protected elements: Record<string, HTMLElement | null> = {};
 
   constructor(
     imageProcessingService: ImageProcessingService,
     stateManagementService: StateManagementService,
-    imageManager: ImageManager
+    imageManager: ImageManager,
+    vectorConversionService: VectorConversionService
   ) {
     super(stateManagementService);
     this.imageProcessingService = imageProcessingService;
     this.imageManager = imageManager;
+    this.vectorConversionService = vectorConversionService;
   }
 
   /**
    * Initialize element references
    */
   protected initializeElementReferences(): void {
+    // Get container elements
+    const strategyControlsContainer = document.getElementById('strategyControlsContainer');
+    const vectorPreviewContainer = document.getElementById('vectorPreviewContainer');
+    const vectorPreview = document.getElementById('vectorPreview');
+    const stencilControls = document.getElementById('stencilControls');
+    const penDrawingControls = document.getElementById('penDrawingControls');
+    const layerControls = document.getElementById('layerControls');
+    const actionButtonsContainer = document.getElementById('actionButtonsContainer');
+    const exportButtonsContainer = document.getElementById('exportButtonsContainer');
+
+    // Initialize storage for dynamically created controls
     this.elements = {
-      vectorPreviewBtn: document.getElementById('vectorPreviewBtn'),
-      crossHatchPreviewBtn: document.getElementById('crossHatchPreviewBtn'), // New button for cross-hatching
-      vectorPreviewContainer: document.getElementById('vectorPreviewContainer'),
-      vectorPreview: document.getElementById('vectorPreview'),
-      
-      // Cross-hatching controls
-      crossHatchingToggle: document.getElementById('crossHatchingToggle'),
-      crossHatchingDensity: document.getElementById('crossHatchingDensity'),
-      crossHatchingDensityLabel: document.getElementById('crossHatchingDensityLabel'),
-      crossHatchingAngle: document.getElementById('crossHatchingAngle'),
-      crossHatchingAngleLabel: document.getElementById('crossHatchingAngleLabel')
+      vectorPreviewContainer,
+      vectorPreview,
+      stencilControls,
+      penDrawingControls,
+      layerControls,
+      actionButtonsContainer,
+      exportButtonsContainer,
+      strategyControlsContainer
     };
+
+    // Create strategy selector
+    if (strategyControlsContainer) {
+      this.createStrategySelector(strategyControlsContainer);
+    }
+
+    // Create stencil controls
+    if (stencilControls) {
+      this.createStencilControls(stencilControls);
+    }
+
+    // Create pen drawing controls
+    if (penDrawingControls) {
+      this.createPenDrawingControls(penDrawingControls);
+    }
+
+    // Create layer control buttons
+    if (layerControls) {
+      this.createLayerControlButtons(layerControls);
+    }
+
+    // Create export buttons
+    if (exportButtonsContainer) {
+      this.createExportButtons(exportButtonsContainer);
+    }
+  }
+
+  /**
+   * Create the strategy selector dropdown
+   */
+  private createStrategySelector(container: HTMLElement): void {
+    // Create container
+    const selectorContainer = document.createElement('div');
+    selectorContainer.className = 'slider-group';
+    selectorContainer.style.display = 'flex';
+    selectorContainer.style.alignItems = 'center';
+    selectorContainer.style.marginBottom = '12px';
+    selectorContainer.style.width = '100%';
+    selectorContainer.style.maxWidth = '340px';
+
+    // Create label
+    const label = document.createElement('label');
+    label.htmlFor = 'strategySelector';
+    label.textContent = 'SVG Style:';
+    label.style.minWidth = '80px';
+
+    // Create dropdown
+    const select = document.createElement('select');
+    select.id = 'strategySelector';
+
+    // Add options
+    const stencilOption = document.createElement('option');
+    stencilOption.value = StrategyType.STENCIL;
+    stencilOption.textContent = 'Stencil (Filled Regions)';
+
+    const penDrawingOption = document.createElement('option');
+    penDrawingOption.value = StrategyType.PEN_DRAWING;
+    penDrawingOption.textContent = 'Pen Drawing (Outlines)';
+
+    select.appendChild(stencilOption);
+    select.appendChild(penDrawingOption);
+
+    // Assemble and add to container
+    selectorContainer.appendChild(label);
+    selectorContainer.appendChild(select);
+    container.appendChild(selectorContainer);
+
+    // Store reference
+    this.elements.strategySelector = select;
+  }
+
+  /**
+   * Create stencil-specific controls
+   */
+  private createStencilControls(container: HTMLElement): void {
+    // Create bezier curve control
+    const bezierContainer = document.createElement('div');
+    bezierContainer.className = 'slider-group';
+    bezierContainer.style.display = 'flex';
+    bezierContainer.style.flexWrap = 'wrap';
+    bezierContainer.style.alignItems = 'center';
+    bezierContainer.style.width = '100%';
+    bezierContainer.style.maxWidth = '340px';
+    bezierContainer.style.margin = '0 auto 10px auto';
+
+    // Label
+    const label = document.createElement('label');
+    label.id = 'bezierSliderLabel';
+    label.htmlFor = 'bezierSlider';
+    label.textContent = 'Curve Fit:';
+    label.style.minWidth = '80px';
+
+    // Slider
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.id = 'bezierSlider';
+    slider.min = '0';
+    slider.max = '10';
+    slider.value = '3';
+
+    // Value display
+    const valueDisplay = document.createElement('span');
+    valueDisplay.id = 'bezierSliderValue';
+    valueDisplay.textContent = '3';
+    valueDisplay.style.marginLeft = '8px';
+
+    // Assemble
+    bezierContainer.appendChild(label);
+    bezierContainer.appendChild(slider);
+    bezierContainer.appendChild(valueDisplay);
+    container.appendChild(bezierContainer);
+
+    // Store references
+    this.elements.bezierSlider = slider;
+    this.elements.bezierSliderValue = valueDisplay;
+  }
+
+  /**
+   * Create pen drawing controls (cross-hatching)
+   */
+  private createPenDrawingControls(container: HTMLElement): void {
+    container.style.maxWidth = '340px';
+    container.style.width = '100%';
+    container.style.margin = '0 auto 16px auto';
+    container.style.borderTop = '1px solid #eee';
+    container.style.paddingTop = '12px';
+
+    // Header
+    const header = document.createElement('div');
+    header.style.marginBottom = '8px';
+    header.style.fontWeight = 'bold';
+    header.style.color = '#059669';
+    header.textContent = 'Pen Plotter Settings';
+    container.appendChild(header);
+
+    // Cross-hatching toggle
+    const toggleContainer = document.createElement('label');
+    toggleContainer.style.display = 'flex';
+    toggleContainer.style.alignItems = 'center';
+    toggleContainer.style.gap = '4px';
+    toggleContainer.style.marginBottom = '8px';
+
+    const toggleCheckbox = document.createElement('input');
+    toggleCheckbox.type = 'checkbox';
+    toggleCheckbox.id = 'crossHatchingToggle';
+
+    const toggleLabel = document.createElement('span');
+    toggleLabel.textContent = 'Use Cross-Hatching for Tones';
+
+    toggleContainer.appendChild(toggleCheckbox);
+    toggleContainer.appendChild(toggleLabel);
+    container.appendChild(toggleContainer);
+
+    // Cross-hatching density
+    const densityContainer = document.createElement('div');
+    densityContainer.style.display = 'flex';
+    densityContainer.style.alignItems = 'center';
+    densityContainer.style.marginBottom = '6px';
+
+    const densityLabel = document.createElement('label');
+    densityLabel.htmlFor = 'crossHatchingDensity';
+    densityLabel.style.minWidth = '70px';
+    densityLabel.textContent = 'Density:';
+
+    const densitySlider = document.createElement('input');
+    densitySlider.type = 'range';
+    densitySlider.id = 'crossHatchingDensity';
+    densitySlider.min = '1';
+    densitySlider.max = '10';
+    densitySlider.value = '5';
+    densitySlider.disabled = true; // Initially disabled
+
+    const densityValue = document.createElement('span');
+    densityValue.id = 'crossHatchingDensityLabel';
+    densityValue.textContent = '5';
+    densityValue.style.marginLeft = '6px';
+
+    densityContainer.appendChild(densityLabel);
+    densityContainer.appendChild(densitySlider);
+    densityContainer.appendChild(densityValue);
+    container.appendChild(densityContainer);
+
+    // Cross-hatching angle
+    const angleContainer = document.createElement('div');
+    angleContainer.style.display = 'flex';
+    angleContainer.style.alignItems = 'center';
+
+    const angleLabel = document.createElement('label');
+    angleLabel.htmlFor = 'crossHatchingAngle';
+    angleLabel.style.minWidth = '70px';
+    angleLabel.textContent = 'Angle:';
+
+    const angleSlider = document.createElement('input');
+    angleSlider.type = 'range';
+    angleSlider.id = 'crossHatchingAngle';
+    angleSlider.min = '0';
+    angleSlider.max = '180';
+    angleSlider.value = '45';
+    angleSlider.disabled = true; // Initially disabled
+
+    const angleValue = document.createElement('span');
+    angleValue.id = 'crossHatchingAngleLabel';
+    angleValue.textContent = '45°';
+    angleValue.style.marginLeft = '6px';
+
+    angleContainer.appendChild(angleLabel);
+    angleContainer.appendChild(angleSlider);
+    angleContainer.appendChild(angleValue);
+    container.appendChild(angleContainer);
+
+    // Store references
+    this.elements.crossHatchingToggle = toggleCheckbox;
+    this.elements.crossHatchingDensity = densitySlider;
+    this.elements.crossHatchingDensityLabel = densityValue;
+    this.elements.crossHatchingAngle = angleSlider;
+    this.elements.crossHatchingAngleLabel = angleValue;
+  }
+
+  /**
+   * Create layer control buttons
+   */
+  private createLayerControlButtons(container: HTMLElement): void {
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.gap = '8px';
+    buttonContainer.style.marginTop = '8px';
+
+    // Enable all layers button
+    const enableAllBtn = document.createElement('button');
+    enableAllBtn.id = 'enableAllLayers';
+    enableAllBtn.textContent = 'Show All Layers';
+    enableAllBtn.className = 'small-btn';
+
+    // Disable all layers button
+    const disableAllBtn = document.createElement('button');
+    disableAllBtn.id = 'disableAllLayers';
+    disableAllBtn.textContent = 'Hide All Layers';
+    disableAllBtn.className = 'small-btn';
+
+    buttonContainer.appendChild(enableAllBtn);
+    buttonContainer.appendChild(disableAllBtn);
+    container.appendChild(buttonContainer);
+
+    // Layers container
+    const layersListContainer = document.createElement('div');
+    layersListContainer.className = 'layer-controls';
+    layersListContainer.style.marginTop = '8px';
+    container.appendChild(layersListContainer);
+
+    // Store references
+    this.elements.enableAllLayersBtn = enableAllBtn;
+    this.elements.disableAllLayersBtn = disableAllBtn;
+    this.elements.layersList = layersListContainer;
+  }
+
+  /**
+   * Create export buttons
+   */
+  private createExportButtons(container: HTMLElement): void {
+    // Download SVG button
+    const downloadSvgBtn = document.createElement('button');
+    downloadSvgBtn.id = 'downloadSvgBtn';
+    downloadSvgBtn.textContent = 'Download SVG';
+    downloadSvgBtn.style.display = 'block';
+    downloadSvgBtn.style.marginBottom = '8px';
+    container.appendChild(downloadSvgBtn);
+
+    // Download ZIP button
+    const downloadZipBtn = document.createElement('button');
+    downloadZipBtn.id = 'downloadZipBtn';
+    downloadZipBtn.textContent = 'Download All Layers (ZIP)';
+    downloadZipBtn.style.display = 'block';
+    container.appendChild(downloadZipBtn);
+
+    // Store references
+    this.elements.downloadSvgBtn = downloadSvgBtn;
+    this.elements.downloadZipBtn = downloadZipBtn;
   }
 
   /**
    * Bind vector control events
    */
   public bindEvents(): void {
-    const { vectorPreviewBtn, crossHatchPreviewBtn } = this.elements;
+    // Add strategy selector if it doesn't exist yet
+    this.ensureStrategySelector();
 
-    if (vectorPreviewBtn) {
-      vectorPreviewBtn.addEventListener('click', () => {
-        this.generateVectorPreview();
+    const {
+      strategySelector,
+      enableAllLayersBtn,
+      disableAllLayersBtn
+    } = this.elements;
+
+    // Bind strategy selector change event
+    if (strategySelector) {
+      strategySelector.addEventListener('change', () => {
+        const selectedStrategy = (strategySelector as HTMLSelectElement).value as StrategyType;
+        this.setVectorStrategy(selectedStrategy);
       });
     }
 
-    if (crossHatchPreviewBtn) {
-      crossHatchPreviewBtn.addEventListener('click', () => {
-        this.generateCrossHatchedPreview();
+    // Enable all layers button
+    if (enableAllLayersBtn) {
+      enableAllLayersBtn.addEventListener('click', () => {
+        this.setAllLayersVisibility(true);
       });
     }
 
-    this.bindCrossHatchingControlEvents();
+    // Disable all layers button
+    if (disableAllLayersBtn) {
+      disableAllLayersBtn.addEventListener('click', () => {
+        this.setAllLayersVisibility(false);
+      });
+    }
+
+    // Bind all control events that should trigger preview updates
+    this.bindControlUpdateEvents();
+
+    // Initially show the SVG preview with the current settings
+    this.updatePreview();
   }
 
   /**
-   * Bind cross-hatching control events
+   * Ensure that the strategy selector exists
+   * Create it if it's not in the HTML already
    */
-  private bindCrossHatchingControlEvents(): void {
+  private ensureStrategySelector(): void {
+    const { vectorPreviewContainer } = this.elements;
+
+    // If the strategy selector doesn't exist, create it
+    if (!this.elements.strategySelector && vectorPreviewContainer) {
+      // Create strategy selector container
+      const selectorContainer = document.createElement('div');
+      selectorContainer.className = 'slider-group';
+      selectorContainer.style.display = 'flex';
+      selectorContainer.style.alignItems = 'center';
+      selectorContainer.style.marginBottom = '12px';
+      selectorContainer.style.width = '100%';
+
+      // Create label
+      const label = document.createElement('label');
+      label.htmlFor = 'strategySelector';
+      label.textContent = 'SVG Style:';
+      label.style.minWidth = '80px';
+
+      // Create select element
+      const select = document.createElement('select');
+      select.id = 'strategySelector';
+
+      // Add options for each strategy
+      const stencilOption = document.createElement('option');
+      stencilOption.value = StrategyType.STENCIL;
+      stencilOption.textContent = 'Stencil (Filled Regions)';
+
+      const penDrawingOption = document.createElement('option');
+      penDrawingOption.value = StrategyType.PEN_DRAWING;
+      penDrawingOption.textContent = 'Pen Drawing (Outlines)';
+
+      // Add options to select
+      select.appendChild(stencilOption);
+      select.appendChild(penDrawingOption);
+
+      // Add elements to container
+      selectorContainer.appendChild(label);
+      selectorContainer.appendChild(select);
+
+      // Add container to the DOM at the top of the vector preview container
+      const firstChild = vectorPreviewContainer.firstChild;
+      if (firstChild) {
+        vectorPreviewContainer.insertBefore(selectorContainer, firstChild);
+      } else {
+        vectorPreviewContainer.appendChild(selectorContainer);
+      }
+
+      // Update element reference
+      this.elements.strategySelector = select;
+    }
+  }
+
+  /**
+   * Bind events to controls that should trigger preview updates
+   */
+  private bindControlUpdateEvents(): void {
     const {
       crossHatchingToggle,
       crossHatchingDensity,
-      crossHatchingDensityLabel,
-      crossHatchingAngle,
-      crossHatchingAngleLabel
+      crossHatchingAngle
     } = this.elements;
 
-    if (crossHatchingToggle) {
-      crossHatchingToggle.addEventListener('change', () => {
-        this.currentState.crossHatchingSettings.enabled =
-          (crossHatchingToggle as HTMLInputElement).checked;
+    // Monitor all controls that should trigger a preview update
+    const updatePreviewOnChange = (element: HTMLElement | null, eventType: string, handler: (e: Event) => void) => {
+      if (element) {
+        const wrappedHandler = (e: Event) => {
+          handler(e);
+          this.debouncedUpdatePreview(); // Update preview after change
+        };
+        element.addEventListener(eventType, wrappedHandler);
+      }
+    };
 
-        // Update UI based on cross-hatching state
-        if (crossHatchingDensity && crossHatchingAngle) {
-          (crossHatchingDensity as HTMLInputElement).disabled =
-            !(crossHatchingToggle as HTMLInputElement).checked;
-          (crossHatchingAngle as HTMLInputElement).disabled =
-            !(crossHatchingToggle as HTMLInputElement).checked;
+    // Cross-hatching toggle
+    if (crossHatchingToggle) {
+      updatePreviewOnChange(crossHatchingToggle, 'change', () => {
+        if (this.currentState.crossHatchingSettings) {
+          this.currentState.crossHatchingSettings.enabled =
+            (crossHatchingToggle as HTMLInputElement).checked;
+
+          // Update UI based on cross-hatching state
+          if (crossHatchingDensity && crossHatchingAngle) {
+            (crossHatchingDensity as HTMLInputElement).disabled =
+              !(crossHatchingToggle as HTMLInputElement).checked;
+            (crossHatchingAngle as HTMLInputElement).disabled =
+              !(crossHatchingToggle as HTMLInputElement).checked;
+          }
+
+          this.stateManagementService.saveState(this.currentState);
+        }
+      });
+    }
+
+    // Cross-hatching density slider
+    if (crossHatchingDensity && this.elements.crossHatchingDensityLabel) {
+      updatePreviewOnChange(crossHatchingDensity, 'input', () => {
+        const value = parseInt((crossHatchingDensity as HTMLInputElement).value, 10);
+        if (this.elements.crossHatchingDensityLabel) {
+          (this.elements.crossHatchingDensityLabel as HTMLElement).innerText = value.toString();
         }
 
-        this.stateManagementService.saveState(this.currentState);
+        if (this.currentState.crossHatchingSettings) {
+          this.currentState.crossHatchingSettings.density = value;
+          this.stateManagementService.saveState(this.currentState);
+        }
       });
     }
 
-    if (crossHatchingDensity && crossHatchingDensityLabel) {
-      crossHatchingDensity.addEventListener('input', () => {
-        const value = parseInt((crossHatchingDensity as HTMLInputElement).value, 10);
-        (crossHatchingDensityLabel as HTMLElement).innerText = value.toString();
-        
-        this.currentState.crossHatchingSettings.density = value;
-        this.stateManagementService.saveState(this.currentState);
-      });
-    }
-
-    if (crossHatchingAngle && crossHatchingAngleLabel) {
-      crossHatchingAngle.addEventListener('input', () => {
+    // Cross-hatching angle slider
+    if (crossHatchingAngle && this.elements.crossHatchingAngleLabel) {
+      updatePreviewOnChange(crossHatchingAngle, 'input', () => {
         const value = parseInt((crossHatchingAngle as HTMLInputElement).value, 10);
-        (crossHatchingAngleLabel as HTMLElement).innerText = value.toString();
-        
-        this.currentState.crossHatchingSettings.angle = value;
-        this.stateManagementService.saveState(this.currentState);
+        if (this.elements.crossHatchingAngleLabel) {
+          (this.elements.crossHatchingAngleLabel as HTMLElement).innerText = value.toString();
+        }
+
+        if (this.currentState.crossHatchingSettings) {
+          this.currentState.crossHatchingSettings.angle = value;
+          this.stateManagementService.saveState(this.currentState);
+        }
+      });
+    }
+
+    // Also bind events for all posterize settings that should trigger an update
+    this.bindPosterizeSettingsEvents();
+  }
+
+  /**
+   * Bind events to posterize settings controls
+   */
+  private bindPosterizeSettingsEvents(): void {
+    // Instead of directly binding to the DOM elements that no longer exist in the HTML,
+    // we'll listen for custom events that are triggered when those settings change.
+    // This approach makes the components more loosely coupled.
+    
+    // Listen for processImage events which indicate that posterize settings have changed
+    document.addEventListener('posterize:processImage', () => {
+      // Update the preview when image processing occurs
+      this.debouncedUpdatePreview();
+    });
+    
+    // We could also bind to the bezier curve slider here
+    const { bezierSlider } = this.elements;
+    if (bezierSlider) {
+      bezierSlider.addEventListener('input', () => {
+        // The value update is handled in the bezier slider's own event handler
+        // Just need to trigger the preview update here
+        this.debouncedUpdatePreview();
       });
     }
   }
 
   /**
-   * Update controls based on state
+   * Set the active vector conversion strategy
    */
-  protected updateControlsInternal(): void {
-    const { crossHatchingToggle, crossHatchingDensity, crossHatchingAngle } = this.elements;
-    
-    if (crossHatchingToggle && crossHatchingDensity && crossHatchingAngle) {
-      (crossHatchingToggle as HTMLInputElement).checked = this.currentState.crossHatchingSettings.enabled;
-      (crossHatchingDensity as HTMLInputElement).value = this.currentState.crossHatchingSettings.density.toString();
-      (crossHatchingAngle as HTMLInputElement).value = this.currentState.crossHatchingSettings.angle.toString();
-      
-      (crossHatchingDensity as HTMLInputElement).disabled = !this.currentState.crossHatchingSettings.enabled;
-      (crossHatchingAngle as HTMLInputElement).disabled = !this.currentState.crossHatchingSettings.enabled;
+  public setVectorStrategy(strategyType: StrategyType): void {
+    // Update the service with the new strategy
+    this.vectorConversionService.setActiveStrategy(strategyType);
+
+    // Show the contextual controls for this strategy
+    this.showContextualControls(strategyType);
+
+    // Update the preview with the new strategy
+    this.updatePreview();
+  }
+
+  /**
+   * Show or hide controls based on the active strategy
+   */
+  public showContextualControls(strategyType: StrategyType): void {
+    const { stencilControls, penDrawingControls } = this.elements;
+
+    // Hide all controls first
+    if (stencilControls) stencilControls.style.display = 'none';
+    if (penDrawingControls) penDrawingControls.style.display = 'none';
+
+    // Show only controls for the selected strategy
+    switch (strategyType) {
+      case StrategyType.STENCIL:
+        if (stencilControls) stencilControls.style.display = 'block';
+        break;
+
+      case StrategyType.PEN_DRAWING:
+        if (penDrawingControls) penDrawingControls.style.display = 'block';
+        break;
+
+      default:
+        console.warn(`Unknown strategy type: ${strategyType}`);
     }
   }
 
   /**
-   * Generate standard vector preview
+   * Debounced update preview to prevent too many updates while sliders are being dragged
    */
-  public generateVectorPreview(): void {
+  private debouncedUpdatePreview(): void {
+    if (this.debounceTimer !== null) {
+      window.clearTimeout(this.debounceTimer);
+    }
+
+    this.debounceTimer = window.setTimeout(() => {
+      this.updatePreview();
+      this.debounceTimer = null;
+    }, this.debounceDelay);
+  }
+
+  /**
+   * Update the vector preview with current settings
+   */
+  public updatePreview(): void {
     const currentImageData = this.imageManager.getCurrentImageData();
     if (!currentImageData) {
-      alert('Please load an image first.');
+      console.warn('No image loaded, cannot update preview');
       return;
     }
     
-    // Get the canvas element
-    const canvas = document.getElementById('canvas') as HTMLCanvasElement;
-    if (!canvas) {
-      console.error('Canvas element not found');
+    // Check if the image data actually has valid data
+    if (currentImageData.dimensions.width === 0 || currentImageData.dimensions.height === 0) {
+      console.warn('Image data not fully loaded yet, deferring preview');
       return;
     }
-    
-    // Get the current image data from the canvas
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      console.error('Could not get canvas context');
-      return;
-    }
-    
-    // Extract the image data from the canvas
-    const canvasImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    
+
     try {
-      // Process the image and get the result
+      // Process the image with current posterize settings
       const processedResult = this.imageProcessingService.processImage(
         currentImageData,
         this.currentState.posterizeSettings
       );
       
-      // Generate vector from processed result
+      // Make sure we got valid processed results
+      if (!processedResult || !processedResult.processedImageData) {
+        console.warn('Image processing did not return valid results');
+        return;
+      }
+
+      // Generate vector from processed result using the active strategy
       const vectorResult = this.imageProcessingService.generateVector(
         processedResult,
         this.currentState.vectorSettings
       );
       
+      // Make sure we have valid vector output
+      if (!vectorResult || !vectorResult.vectorOutput || !vectorResult.vectorOutput.layers || vectorResult.vectorOutput.layers.length === 0) {
+        console.warn('Vector generation did not return valid results');
+        return;
+      }
+
       // Render the vector preview
       this.renderVectorPreview(vectorResult.vectorOutput);
-      
+
+      // Show the vector preview container
+      const { vectorPreviewContainer } = this.elements;
+      if (vectorPreviewContainer) {
+        vectorPreviewContainer.style.display = 'flex';
+      }
+
       // Save the current state
       this.stateManagementService.saveState(this.currentState);
     } catch (error) {
       console.error('Error generating vector preview:', error);
-      alert('Failed to generate vector preview. See console for details.');
     }
   }
 
   /**
-   * Generate cross-hatched vector preview
+   * Generate cross-hatched vector preview for backward compatibility
    */
   public generateCrossHatchedPreview(): void {
-    const currentImageData = this.imageManager.getCurrentImageData();
-    if (!currentImageData) {
-      alert('Please load an image first.');
-      return;
-    }
-    
-    try {
-      // Process the image and get the result
-      const processedResult = this.imageProcessingService.processImage(
-        currentImageData,
-        this.currentState.posterizeSettings
-      );
-      
-      // Generate vector from processed result
-      const vectorResult = this.imageProcessingService.generateVector(
-        processedResult,
-        this.currentState.vectorSettings
-      );
-      
-      // Apply cross-hatching to the vector output
-      const crossHatchedOutput = this.imageProcessingService.applyCrossHatching(
-        vectorResult,
-        this.currentState.crossHatchingSettings
-      );
-      
-      // Render the cross-hatched vector preview
-      this.renderVectorPreview(crossHatchedOutput);
-      
-      // Save the current state
+    // Set the strategy to PEN_DRAWING and update
+    this.setVectorStrategy(StrategyType.PEN_DRAWING);
+
+    // Enable cross-hatching
+    const { crossHatchingToggle } = this.elements;
+    if (crossHatchingToggle && this.currentState.crossHatchingSettings) {
+      this.currentState.crossHatchingSettings.enabled = true;
+      (crossHatchingToggle as HTMLInputElement).checked = true;
+
+      // Update cross-hatching controls
+      const { crossHatchingDensity, crossHatchingAngle } = this.elements;
+      if (crossHatchingDensity) {
+        (crossHatchingDensity as HTMLInputElement).disabled = false;
+      }
+      if (crossHatchingAngle) {
+        (crossHatchingAngle as HTMLInputElement).disabled = false;
+      }
+
       this.stateManagementService.saveState(this.currentState);
-    } catch (error) {
-      console.error('Error generating cross-hatched preview:', error);
-      alert('Failed to generate cross-hatched preview. See console for details.');
     }
+
+    // Update the preview
+    this.updatePreview();
   }
 
   /**
    * Render vector preview in the UI
    */
   public renderVectorPreview(vectorOutput: VectorOutput): void {
-    // Use the preview manager to render the vector preview if available
-    if (window.previewManager && typeof window.previewManager.renderVectorPreview === 'function') {
-      window.previewManager.renderVectorPreview(vectorOutput);
-    } else {
-      // Fallback to direct DOM manipulation
-      this.renderVectorPreviewFallback(vectorOutput);
-    }
-    
-    // Try to use the layer panel manager if available
-    if (window.layerPanelManager && typeof window.layerPanelManager.createLayerControls === 'function') {
-      window.layerPanelManager.createLayerControls(vectorOutput);
-    } else {
-      // Create layer controls ourselves
-      this.createVectorLayerControls(vectorOutput);
-    }
-    
-    // Show vector preview container
-    const vectorPreviewContainer = document.getElementById('vectorPreviewContainer');
-    if (vectorPreviewContainer) {
-      vectorPreviewContainer.style.display = 'flex';
-    }
-    
-    // Show cross-hatching controls if enabled
-    const crossHatchingControls = document.getElementById('crossHatchingControls');
-    if (crossHatchingControls) {
-      crossHatchingControls.style.display = 'block';
-    }
-  }
-
-  /**
-   * Direct DOM manipulation fallback for vector preview
-   * Used when the PreviewManager is not available
-   */
-  private renderVectorPreviewFallback(vectorOutput: VectorOutput): void {
-    const vectorPreviewElement = document.getElementById('vectorPreview');
-    if (!vectorPreviewElement) return;
+    const { vectorPreview } = this.elements;
+    if (!vectorPreview) return;
 
     // Clear existing content
-    vectorPreviewElement.innerHTML = '';
+    vectorPreview.innerHTML = '';
 
     // Create the SVG elements for preview
     const { width, height } = vectorOutput.dimensions;
@@ -302,173 +731,177 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
         pathElem.setAttribute('d', path.d);
         pathElem.setAttribute('fill', path.fill);
         pathElem.setAttribute('stroke', path.stroke);
-        pathElem.setAttribute('stroke-width', path.strokeWidth || '0');
+        pathElem.setAttribute('stroke-width', path.strokeWidth);
         svgElem.appendChild(pathElem);
       });
 
       layersDiv.appendChild(svgElem);
     });
 
-    vectorPreviewElement.appendChild(layersDiv);
+    // Add layers div to the preview container
+    vectorPreview.appendChild(layersDiv);
+
+    // Create layer controls
+    this.createVectorLayerControls(vectorOutput);
   }
 
   /**
-   * Helper method to create layer controls for vector preview
+   * Create layer controls for the vector preview
    */
   public createVectorLayerControls(vectorOutput: VectorOutput): void {
-    // Get or create vector preview element
-    const vectorPreviewElement = document.getElementById('vectorPreview');
-    if (!vectorPreviewElement) return;
+    const { layerControls } = this.elements;
+    if (!layerControls) return;
 
-    // Clear existing content
-    vectorPreviewElement.innerHTML = '';
+    // Clear existing controls
+    layerControls.innerHTML = '';
 
-    // Create layer controls container
-    const layerControls = document.createElement('div');
-    layerControls.style.display = 'flex';
-    layerControls.style.flexWrap = 'wrap';
-    layerControls.style.gap = '8px';
-    layerControls.style.marginBottom = '10px';
-    layerControls.style.alignItems = 'center';
-
-    // Create enable/disable all buttons
-    const enableAllBtn = document.createElement('button');
-    enableAllBtn.textContent = 'Enable All';
-    enableAllBtn.style.marginRight = '8px';
-
-    const disableAllBtn = document.createElement('button');
-    disableAllBtn.textContent = 'Disable All';
-    disableAllBtn.style.marginRight = '16px';
-
-    layerControls.appendChild(enableAllBtn);
-    layerControls.appendChild(disableAllBtn);
-
-    // Create array to store layer checkboxes
-    const layerCheckboxes: HTMLInputElement[] = [];
-
-    // Background layer control
-    const bgLabel = document.createElement('label');
-    bgLabel.style.display = 'flex';
-    bgLabel.style.alignItems = 'center';
-    bgLabel.style.gap = '4px';
-
-    const bgCb = document.createElement('input');
-    bgCb.type = 'checkbox';
-    bgCb.checked = true;
-
-    const bgSwatch = document.createElement('span');
-    const bgColor = vectorOutput.background || '#f7f7f7';
-    bgSwatch.style.display = 'inline-block';
-    bgSwatch.style.width = '16px';
-    bgSwatch.style.height = '16px';
-    bgSwatch.style.background = bgColor;
-    bgSwatch.style.border = '1px solid #888';
-    bgSwatch.style.borderRadius = '3px';
-
-    bgLabel.appendChild(bgCb);
-    bgLabel.appendChild(bgSwatch);
-    bgLabel.appendChild(document.createTextNode('Background'));
-    layerControls.appendChild(bgLabel);
-
-    // Create SVG container with white background
-    const containerDiv = document.createElement('div');
-    containerDiv.style.position = 'relative';
-    containerDiv.style.width = `${vectorOutput.dimensions.width}px`;
-    containerDiv.style.height = `${vectorOutput.dimensions.height}px`;
-    containerDiv.style.margin = '0 auto';
-    containerDiv.style.backgroundColor = bgColor;
-
-    // Create SVG elements for preview
-    const svgNS = 'http://www.w3.org/2000/svg';
-    const svgElems: SVGElement[] = [];
-
-    // Add each SVG layer
+    // Create layer toggles
     vectorOutput.layers.forEach((layer, i) => {
-      const svgElem = document.createElementNS(svgNS, 'svg');
-      svgElem.setAttribute('width', vectorOutput.dimensions.width.toString());
-      svgElem.setAttribute('height', vectorOutput.dimensions.height.toString());
-      svgElem.setAttribute('viewBox', `0 0 ${vectorOutput.dimensions.width} ${vectorOutput.dimensions.height}`);
-      svgElem.style.position = 'absolute';
-      svgElem.style.top = '0';
-      svgElem.style.left = '0';
-      svgElem.style.width = '100%';
-      svgElem.style.height = '100%';
-      svgElem.style.display = layer.visible ? '' : 'none';
+      const layerDiv = document.createElement('div');
+      layerDiv.className = 'layer-control';
+      layerDiv.style.display = 'flex';
+      layerDiv.style.alignItems = 'center';
+      layerDiv.style.marginBottom = '8px';
 
-      layer.paths.forEach(path => {
-        const pathElem = document.createElementNS(svgNS, 'path');
-        pathElem.setAttribute('d', path.d);
-        pathElem.setAttribute('fill', path.fill);
-        pathElem.setAttribute('stroke', path.stroke);
-        pathElem.setAttribute('stroke-width', path.strokeWidth);
-        svgElem.appendChild(pathElem);
+      // Create color swatch
+      const swatch = document.createElement('div');
+      swatch.style.width = '20px';
+      swatch.style.height = '20px';
+      swatch.style.marginRight = '8px';
+
+      // If paths exist, use their color for the swatch
+      if (layer.paths && layer.paths.length > 0) {
+        swatch.style.backgroundColor = layer.paths[0].fill;
+      } else {
+        swatch.style.backgroundColor = '#ccc';
+      }
+
+      // Create checkbox
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = layer.visible;
+      checkbox.id = `layer-toggle-${i}`;
+      checkbox.style.marginRight = '8px';
+      checkbox.addEventListener('change', () => {
+        this.updateLayerVisibility(layer.id, checkbox.checked);
       });
 
-      containerDiv.appendChild(svgElem);
-      svgElems.push(svgElem);
-
-      // Create layer control
+      // Create label
       const label = document.createElement('label');
-      label.style.display = 'flex';
-      label.style.alignItems = 'center';
-      label.style.gap = '4px';
+      label.htmlFor = `layer-toggle-${i}`;
+      label.textContent = `Layer ${i + 1}`;
 
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = layer.visible;
-      layerCheckboxes.push(cb);
+      // Append elements
+      layerDiv.appendChild(swatch);
+      layerDiv.appendChild(checkbox);
+      layerDiv.appendChild(label);
+      layerControls.appendChild(layerDiv);
+    });
+  }
 
-      cb.onchange = () => {
-        svgElem.style.display = cb.checked ? '' : 'none';
-        // Update layer visibility in vectorOutput for export
-        layer.visible = cb.checked;
-      };
+  /**
+   * Update the visibility of a layer
+   */
+  private updateLayerVisibility(layerId: string, visible: boolean): void {
+    // Get the current vector output
+    const currentOutput = this.getCurrentVectorOutput();
+    if (!currentOutput) return;
 
-      // Extract color from the SVG path
-      const path = layer.paths[0];
-      const color = path ? path.fill : '#888';
+    // Find the layer and update visibility
+    const layer = currentOutput.layers.find(l => l.id === layerId);
+    if (layer) {
+      layer.visible = visible;
 
-      const colorSwatch = document.createElement('span');
-      colorSwatch.style.display = 'inline-block';
-      colorSwatch.style.width = '16px';
-      colorSwatch.style.height = '16px';
-      colorSwatch.style.background = color || '#888';
-      colorSwatch.style.border = '1px solid #888';
-      colorSwatch.style.borderRadius = '3px';
+      // Re-render the preview
+      this.renderVectorPreview(currentOutput);
+    }
+  }
 
-      label.appendChild(cb);
-      label.appendChild(colorSwatch);
-      label.appendChild(document.createTextNode(`Layer ${i + 1}`));
+  /**
+   * Get the current vector output from the preview
+   */
+  private getCurrentVectorOutput(): VectorOutput | null {
+    // Try to use the preview manager if available
+    if (window.previewManager && typeof window.previewManager.getVectorOutput === 'function') {
+      return window.previewManager.getVectorOutput();
+    }
 
-      layerControls.appendChild(label);
+    // Otherwise, we'll need to regenerate it
+    try {
+      const currentImageData = this.imageManager.getCurrentImageData();
+      if (!currentImageData) return null;
+
+      const processedResult = this.imageProcessingService.processImage(
+        currentImageData,
+        this.currentState.posterizeSettings
+      );
+
+      const vectorResult = this.imageProcessingService.generateVector(
+        processedResult,
+        this.currentState.vectorSettings
+      );
+
+      return vectorResult.vectorOutput;
+    } catch (error) {
+      console.error('Error getting current vector output:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Set visibility for all layers
+   */
+  private setAllLayersVisibility(visible: boolean): void {
+    const currentOutput = this.getCurrentVectorOutput();
+    if (!currentOutput) return;
+
+    // Update all layers
+    currentOutput.layers.forEach(layer => {
+      layer.visible = visible;
     });
 
-    // Background handler
-    bgCb.onchange = () => {
-      containerDiv.style.backgroundColor = bgCb.checked ? bgColor : 'transparent';
-    };
+    // Re-render with updated visibility
+    this.renderVectorPreview(currentOutput);
+  }
 
-    // Add event handlers for the enable/disable all buttons
-    enableAllBtn.onclick = () => {
-      layerCheckboxes.forEach(cb => {
-        cb.checked = true;
-        cb.dispatchEvent(new Event('change'));
-      });
-      bgCb.checked = true;
-      bgCb.dispatchEvent(new Event('change'));
-    };
+  /**
+   * Update controls based on state
+   */
+  protected updateControlsInternal(): void {
+    const { strategySelector, crossHatchingToggle, crossHatchingDensity, crossHatchingAngle } = this.elements;
 
-    disableAllBtn.onclick = () => {
-      layerCheckboxes.forEach(cb => {
-        cb.checked = false;
-        cb.dispatchEvent(new Event('change'));
-      });
-      bgCb.checked = false;
-      bgCb.dispatchEvent(new Event('change'));
-    };
+    // Update strategy selector if it exists
+    if (strategySelector) {
+      try {
+        // Set the current active strategy in the dropdown
+        const currentStrategy = this.vectorConversionService.getActiveStrategy().strategyType;
+        (strategySelector as HTMLSelectElement).value = currentStrategy;
 
-    // Add the controls and container to the preview area
-    vectorPreviewElement.appendChild(layerControls);
-    vectorPreviewElement.appendChild(containerDiv);
+        // Show the appropriate contextual controls for this strategy
+        this.showContextualControls(currentStrategy);
+      } catch (e) {
+        console.warn('Failed to get active strategy:', e);
+        // Default to stencil strategy if there's an error
+        this.showContextualControls(StrategyType.STENCIL);
+      }
+    } else {
+      // Create the strategy selector if it doesn't exist
+      this.ensureStrategySelector();
+    }
+
+    // Update cross-hatching controls
+    if (crossHatchingToggle && crossHatchingDensity && crossHatchingAngle && this.currentState.crossHatchingSettings) {
+      (crossHatchingToggle as HTMLInputElement).checked = this.currentState.crossHatchingSettings.enabled;
+      (crossHatchingDensity as HTMLInputElement).value = this.currentState.crossHatchingSettings.density.toString();
+      (crossHatchingAngle as HTMLInputElement).value = this.currentState.crossHatchingSettings.angle.toString();
+
+      (crossHatchingDensity as HTMLInputElement).disabled = !this.currentState.crossHatchingSettings.enabled;
+      (crossHatchingAngle as HTMLInputElement).disabled = !this.currentState.crossHatchingSettings.enabled;
+    }
+
+    // Show the preview
+    this.updatePreview();
   }
 }
+
+// Global interfaces for previewManager and layerPanelManager are defined in ui-control-manager.ts
