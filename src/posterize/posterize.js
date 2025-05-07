@@ -1,0 +1,824 @@
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const colorCountSlider = document.getElementById('colorCount');
+const colorCountLabel = document.getElementById('colorCountLabel');
+const thresholdControls = document.getElementById('thresholdControls');
+let image = null;
+let aspectRatioSetting = '1:1';
+let cropMode = 'crop'; // 'crop' or 'fit'
+
+
+// Helper to parse aspect ratio string (e.g., '4:3', '8.5:11', '5:3')
+function parseAspectRatio(val) {
+  if (val === '8.5:11') return 8.5 / 11;
+  // '5:3' and other ratios will be parsed generically
+  const [w, h] = val.split(':').map(Number);
+  return w / h;
+}
+let colorCount = parseInt(colorCountSlider.value, 10);
+let thresholds = Array.from({ length: colorCount - 1 }, (_, i) => Math.round(255 * (i + 1) / colorCount));
+const aspectRatioSelect = document.getElementById('aspectRatio');
+const cropModeSelect = document.getElementById('cropMode');
+const borderToggle = document.getElementById('borderToggle');
+const borderThicknessSlider = document.getElementById('borderThickness');
+const borderThicknessLabel = document.getElementById('borderThicknessLabel');
+const noiseEnable = document.getElementById('noiseEnable');
+const noiseThreshold = document.getElementById('noiseThreshold');
+const noiseThresholdLabel = document.getElementById('noiseThresholdLabel');
+const smoothEnable = document.getElementById('smoothEnable');
+const smoothStrength = document.getElementById('smoothStrength');
+const smoothStrengthLabel = document.getElementById('smoothStrengthLabel');
+const vectorPreviewBtn = document.getElementById('vectorPreviewBtn');
+const resetBtn = document.getElementById('resetBtn');
+const vectorPreviewContainer = document.getElementById('vectorPreviewContainer');
+const vectorPreview = document.getElementById('vectorPreview');
+const downloadSvg = document.getElementById('downloadSvg');
+
+// --- Local Storage Keys ---
+const STORAGE_KEY = 'posterizeAppState';
+
+// --- Aspect Ratio Control ---
+aspectRatioSelect.value = '1:1';
+aspectRatioSelect.addEventListener('change', () => {
+  aspectRatioSetting = aspectRatioSelect.value;
+  saveState();
+  if (window._originalImageDataUrl) {
+    loadImage(null, window._originalImageDataUrl);
+  }
+});
+cropModeSelect.value = cropMode;
+cropModeSelect.addEventListener('change', () => {
+  cropMode = cropModeSelect.value;
+  saveState();
+  if (window._originalImageDataUrl) {
+    loadImage(null, window._originalImageDataUrl);
+  }
+});
+
+// --- Drag and Drop Logic ---
+dropzone.addEventListener('click', () => fileInput.click());
+
+// --- Reset Button ---
+resetBtn.addEventListener('click', () => {
+  localStorage.removeItem(STORAGE_KEY);
+  image = null;
+  colorCountSlider.value = 3;
+  colorCountLabel.innerText = 3;
+  colorCount = 3;
+  thresholds = [85, 170];
+  renderThresholdControls();
+  noiseEnable.checked = false;
+  noiseThreshold.value = 8;
+  noiseThresholdLabel.innerText = 8;
+  noiseThreshold.disabled = true;
+  smoothEnable.checked = false;
+  smoothStrength.value = 2;
+  smoothStrengthLabel.innerText = 2;
+  smoothStrength.disabled = true;
+  canvas.style.display = 'none';
+  vectorPreviewContainer.style.display = 'none';
+  fileInput.value = '';
+  posterize();
+});
+dropzone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropzone.classList.add('dragover');
+});
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+    loadImage(e.dataTransfer.files[0]);
+  }
+});
+fileInput.addEventListener('change', e => {
+  if (fileInput.files && fileInput.files[0]) {
+    loadImage(fileInput.files[0]);
+  }
+});
+
+function loadImage(file, optionalDataUrl) {
+  function onloadHandler(dataUrl) {
+    const img = new window.Image();
+    img.onload = function () {
+      const ratio = parseAspectRatio(aspectRatioSetting);
+      let iw = img.width, ih = img.height;
+      let canvasW = 320, canvasH = 320;
+      if (ratio >= 1) {
+        canvasH = Math.round(320 / ratio);
+      } else {
+        canvasW = Math.round(320 * ratio);
+      }
+      canvas.width = canvasW;
+      canvas.height = canvasH;
+      ctx.clearRect(0, 0, canvasW, canvasH);
+      if (cropMode === 'fit') {
+        // Fit entire image inside aspect ratio (letterbox/pillarbox)
+        const scale = Math.min(canvasW / iw, canvasH / ih);
+        const drawW = Math.round(iw * scale);
+        const drawH = Math.round(ih * scale);
+        const dx = Math.floor((canvasW - drawW) / 2);
+        const dy = Math.floor((canvasH - drawH) / 2);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvasW, canvasH);
+        ctx.drawImage(img, 0, 0, iw, ih, dx, dy, drawW, drawH);
+      } else {
+        // Crop image to match aspect ratio
+        let cropW = iw, cropH = ih;
+        if (iw / ih > ratio) {
+          cropW = Math.round(ih * ratio);
+          cropH = ih;
+        } else {
+          cropW = iw;
+          cropH = Math.round(iw / ratio);
+        }
+        const sx = Math.floor((iw - cropW) / 2);
+        const sy = Math.floor((ih - cropH) / 2);
+        ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, canvasW, canvasH);
+      }
+      image = ctx.getImageData(0, 0, canvasW, canvasH);
+      canvas.style.display = '';
+      if (!optionalDataUrl) {
+        window._originalImageDataUrl = canvas.toDataURL();
+      } else if (!window._originalImageDataUrl) {
+        window._originalImageDataUrl = optionalDataUrl;
+      }
+      saveState();
+      posterize();
+    };
+    img.src = dataUrl;
+  }
+  if (optionalDataUrl) {
+    onloadHandler(optionalDataUrl);
+  } else {
+    const reader = new FileReader();
+    reader.onload = function (evt) {
+      onloadHandler(evt.target.result);
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+// --- Posterization Logic ---
+function posterize() {
+  if (!image) return;
+  const w = image.width, h = image.height;
+  // Step 1: Assign buckets
+  const buckets = new Uint8Array(w * h);
+  const data = image.data;
+  for (let y = 0; y < h; ++y) {
+    for (let x = 0; x < w; ++x) {
+      const i = (y * w + x) * 4;
+      const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      let bucket = 0;
+      while (bucket < thresholds.length && lum > thresholds[bucket]) bucket++;
+      buckets[y * w + x] = bucket;
+    }
+  }
+  // Step 2: Optionally remove noise
+  if (noiseEnable.checked) {
+    removeNoise(buckets, w, h, parseInt(noiseThreshold.value, 10));
+  }
+  // Step 3: Optionally smooth
+  if (smoothEnable.checked) {
+    smoothBuckets(buckets, w, h, colorCount, parseInt(smoothStrength.value, 10));
+  }
+  // Step 4: Write to output image
+  const imgData = ctx.createImageData(w, h);
+  const out = imgData.data;
+  for (let y = 0; y < h; ++y) {
+    for (let x = 0; x < w; ++x) {
+      const bucket = buckets[y * w + x];
+      const v = Math.round(255 * (bucket / (colorCount - 1)));
+      const i = (y * w + x) * 4;
+      out[i] = out[i + 1] = out[i + 2] = v;
+      out[i + 3] = data[i + 3];
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  // Draw border for live posterized output
+  if (borderToggle.checked && parseInt(borderThicknessSlider.value, 10) > 0) {
+    ctx.save();
+    ctx.strokeStyle = '#fff'; // White border for now
+    ctx.lineWidth = parseInt(borderThicknessSlider.value, 10);
+    ctx.strokeRect(
+      ctx.lineWidth / 2,
+      ctx.lineWidth / 2,
+      w - ctx.lineWidth,
+      h - ctx.lineWidth
+    );
+    ctx.restore();
+  }
+  saveState();
+}
+
+// --- Smoothing ---
+function smoothBuckets(buckets, w, h, colorCount, iterations) {
+  const dx = [-1, 0, 1, -1, 1, -1, 0, 1];
+  const dy = [-1, -1, -1, 0, 0, 1, 1, 1];
+  let src = buckets, dst = new Uint8Array(w * h);
+  for (let it = 0; it < iterations; ++it) {
+    for (let y = 0; y < h; ++y) {
+      for (let x = 0; x < w; ++x) {
+        const idx = y * w + x;
+        const counts = new Array(colorCount).fill(0);
+        for (let d = 0; d < 8; ++d) {
+          const nx = x + dx[d], ny = y + dy[d];
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          counts[src[ny * w + nx]]++;
+        }
+        // Majority vote (ties prefer current value)
+        let maxBucket = src[idx], maxCount = counts[src[idx]];
+        for (let i = 0; i < counts.length; ++i) {
+          if (counts[i] > maxCount) {
+            maxCount = counts[i];
+            maxBucket = i;
+          }
+        }
+        dst[idx] = maxBucket;
+      }
+    }
+    // Swap src/dst
+    let tmp = src; src = dst; dst = tmp;
+  }
+  // Copy back if needed
+  if (src !== buckets) {
+    for (let i = 0; i < w * h; ++i) buckets[i] = src[i];
+  }
+}
+
+// --- Noise Removal ---
+// Remove regions smaller than minSize (4-way connected)
+function removeNoise(buckets, w, h, minSize) {
+  const visited = new Uint8Array(w * h);
+  const dx = [1, -1, 0, 0], dy = [0, 0, 1, -1];
+  for (let y = 0; y < h; ++y) {
+    for (let x = 0; x < w; ++x) {
+      const idx = y * w + x;
+      if (visited[idx]) continue;
+      const region = [], queue = [[x, y]];
+      const origBucket = buckets[idx];
+      visited[idx] = 1;
+      region.push(idx);
+      // BFS to find region
+      while (queue.length) {
+        const [cx, cy] = queue.pop();
+        for (let d = 0; d < 4; ++d) {
+          const nx = cx + dx[d], ny = cy + dy[d];
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const nidx = ny * w + nx;
+          if (!visited[nidx] && buckets[nidx] === origBucket) {
+            visited[nidx] = 1;
+            queue.push([nx, ny]);
+            region.push(nidx);
+          }
+        }
+      }
+      if (region.length < minSize) {
+        // Assign to majority neighbor bucket
+        const counts = new Array(colorCount).fill(0);
+        for (const ridx of region) {
+          const rx = ridx % w, ry = Math.floor(ridx / w);
+          for (let d = 0; d < 4; ++d) {
+            const nx = rx + dx[d], ny = ry + dy[d];
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            const nidx = ny * w + nx;
+            if (buckets[nidx] !== origBucket) {
+              counts[buckets[nidx]]++;
+            }
+          }
+        }
+        let maxBucket = origBucket, maxCount = -1;
+        for (let i = 0; i < counts.length; ++i) {
+          if (counts[i] > maxCount) {
+            maxCount = counts[i];
+            maxBucket = i;
+          }
+        }
+        for (const ridx of region) {
+          buckets[ridx] = maxBucket;
+        }
+      }
+    }
+  }
+}
+
+// --- Threshold Controls ---
+function renderThresholdControls() {
+  thresholdControls.innerHTML = '';
+  for (let i = 0; i < colorCount - 1; ++i) {
+    const group = document.createElement('div');
+    group.className = 'threshold-slider';
+    const label = document.createElement('label');
+    label.innerText = `Threshold ${i + 1}`;
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = 0; slider.max = 255;
+    slider.value = parseInt(thresholds[i], 10);
+    slider.step = 1;
+    slider.min = 0;
+    slider.max = 255;
+    const value = document.createElement('span');
+    value.innerText = slider.value;
+    slider.addEventListener('input', () => {
+      const v = parseInt(slider.value, 10);
+      thresholds[i] = v;
+      value.innerText = v;
+      saveState();
+      posterize();
+    });
+    group.appendChild(label);
+    group.appendChild(slider);
+    group.appendChild(value);
+    thresholdControls.appendChild(group);
+  }
+}
+
+// --- Color Count Control ---
+colorCountSlider.addEventListener('input', () => {
+  colorCount = parseInt(colorCountSlider.value, 10);
+  colorCountLabel.innerText = colorCount;
+  // Evenly space thresholds
+  thresholds = Array.from({ length: colorCount - 1 }, (_, i) => Math.round(255 * (i + 1) / colorCount));
+  renderThresholdControls(); // Only re-render controls when color count changes
+  saveState();
+  posterize();
+});
+
+// --- Noise Controls ---
+noiseEnable.addEventListener('change', () => {
+  noiseThreshold.disabled = !noiseEnable.checked;
+  saveState();
+  posterize();
+});
+noiseThreshold.addEventListener('input', () => {
+  noiseThresholdLabel.innerText = noiseThreshold.value;
+  saveState();
+  if (noiseEnable.checked) posterize();
+});
+
+// --- Smoothing Controls ---
+smoothEnable.addEventListener('change', () => {
+  smoothStrength.disabled = !smoothEnable.checked;
+  saveState();
+  posterize();
+});
+smoothStrength.addEventListener('input', () => {
+  smoothStrengthLabel.innerText = smoothStrength.value;
+  saveState();
+  if (smoothEnable.checked) posterize();
+});
+
+// --- Vector Preview with OpenCV.js ---
+vectorPreviewBtn.addEventListener('click', () => {
+  if (!image || typeof cv === 'undefined') {
+    alert('OpenCV.js is not loaded yet. Please wait a moment and try again.');
+    return;
+  }
+  const w = image.width, h = image.height;
+  // Make a copy of the image data for SVG extraction
+  let imgData = new ImageData(new Uint8ClampedArray(image.data), w, h);
+  // Draw border onto imgData if enabled
+  if (borderToggle.checked && parseInt(borderThicknessSlider.value, 10) > 0) {
+    const thickness = parseInt(borderThicknessSlider.value, 10);
+    // Top and bottom
+    for (let y = 0; y < thickness; ++y) {
+      for (let x = 0; x < w; ++x) {
+        let i = (y * w + x) * 4;
+        imgData.data[i] = 255; imgData.data[i + 1] = 255; imgData.data[i + 2] = 255; imgData.data[i + 3] = 255;
+        let j = ((h - 1 - y) * w + x) * 4;
+        imgData.data[j] = 255; imgData.data[j + 1] = 255; imgData.data[j + 2] = 255; imgData.data[j + 3] = 255;
+      }
+    }
+    // Left and right
+    for (let y = thickness; y < h - thickness; ++y) {
+      for (let x = 0; x < thickness; ++x) {
+        let i = (y * w + x) * 4;
+        imgData.data[i] = 255; imgData.data[i + 1] = 255; imgData.data[i + 2] = 255; imgData.data[i + 3] = 255;
+        let j = (y * w + (w - 1 - x)) * 4;
+        imgData.data[j] = 255; imgData.data[j + 1] = 255; imgData.data[j + 2] = 255; imgData.data[j + 3] = 255;
+      }
+    }
+  }
+  const buckets = new Uint8Array(w * h);
+  const data = imgData.data;
+  for (let y = 0; y < h; ++y) {
+    for (let x = 0; x < w; ++x) {
+      const i = (y * w + x) * 4;
+      const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      let bucket = 0;
+      while (bucket < thresholds.length && lum > thresholds[bucket]) bucket++;
+      buckets[y * w + x] = bucket;
+    }
+  }
+  if (noiseEnable.checked) {
+    removeNoise(buckets, w, h, parseInt(noiseThreshold.value, 10));
+  }
+  if (smoothEnable.checked) {
+    smoothBuckets(buckets, w, h, colorCount, parseInt(smoothStrength.value, 10));
+  }
+  vectorPreview.innerHTML = '';
+  // --- Collect SVG path data for each region (for preview and export) ---
+  let regionPathData = Array.from({ length: colorCount }, () => []);
+  let svgNS = 'http://www.w3.org/2000/svg';
+  let svgElems = [];
+  let combinedPaths = [];
+  for (let bucket = 0; bucket < colorCount; ++bucket) {
+    // Create a mask for this bucket
+    let mask = new cv.Mat.zeros(h, w, cv.CV_8UC1);
+    for (let y = 0; y < h; ++y) {
+      for (let x = 0; x < w; ++x) {
+        if (buckets[y * w + x] === bucket) {
+          mask.ucharPtr(y, x)[0] = 255;
+        }
+      }
+    }
+    // Find contours with hierarchy
+    let contours = new cv.MatVector();
+    let hierarchy = new cv.Mat();
+    cv.findContours(mask, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
+    // --- Build contour tree (hierarchy) ---
+    let contourTree = [];
+    let n = contours.size();
+    let hier = hierarchy.data32S;
+    for (let i = 0; i < n; ++i) {
+      contourTree.push({
+        idx: i,
+        children: [],
+        parent: hier[i * 4 + 3],
+        next: hier[i * 4],
+        prev: hier[i * 4 + 1],
+        firstChild: hier[i * 4 + 2]
+      });
+    }
+    // Link children to parents
+    for (let i = 0; i < n; ++i) {
+      if (contourTree[i].parent !== -1) {
+        contourTree[contourTree[i].parent].children.push(i);
+      }
+    }
+    // --- SVG path generation helpers ---
+    function isContourImageBorder(cnt, w, h) {
+      // Checks if the contour matches the image rectangle
+      if (cnt.data32S.length !== 8) return false; // Rectangle should have 4 points (8 values)
+      const pts = [];
+      for (let j = 0; j < cnt.data32S.length; j += 2) {
+        pts.push([cnt.data32S[j], cnt.data32S[j + 1]]);
+      }
+      // The border can be clockwise or counterclockwise
+      const border1 = [
+        [0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]
+      ];
+      const border2 = [
+        [0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]
+      ];
+      const match = (a, b) => a.every((pt, i) => pt[0] === b[i][0] && pt[1] === b[i][1]);
+      return match(pts, border1) || match(pts, border2);
+    }
+    function contourToPath(cnt) {
+      let path = '';
+      if (cnt.data32S.length < 2) return path;
+      for (let j = 0; j < cnt.data32S.length; j += 2) {
+        const x = cnt.data32S[j], y = cnt.data32S[j + 1];
+        if (j === 0) path += `M${x},${y}`;
+        else path += `L${x},${y}`;
+      }
+      // Explicitly close the subpath, even for degenerate contours
+      path += 'Z';
+      return path;
+    }
+    // --- Split into stencils (one for each outermost contour and its holes) ---
+    let used = new Array(n).fill(false);
+    // Traverse the contour tree and add a layer for every filled region (even depth), never for holes (odd depth)
+    // Helper: get bounding box for a contour
+    function getBoundingBox(cnt) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (let j = 0; j < cnt.data32S.length; j += 2) {
+        const x = cnt.data32S[j], y = cnt.data32S[j + 1];
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+      return { minX, minY, maxX, maxY };
+    }
+    // Helper: check if two bounding boxes intersect
+    function boxesIntersect(a, b) {
+      return !(a.maxX < b.minX || a.minX > b.maxX || a.maxY < b.minY || a.minY > b.maxY);
+    }
+    // Collect all filled regions (even depth)
+    let regionGroups = [];
+    let regionBoxes = [];
+    function collectRegions(idx, depth = 0) {
+      // Allow the image border contour only if border is enabled and this is the top (white) bucket
+      const isBorder = isContourImageBorder(contours.get(idx), w, h);
+      if (used[idx]) return;
+      // Only skip adding the border region as a layer, not its children
+      if (depth % 2 === 0 && !(isBorder && borderToggle.checked && bucket === colorCount - 1)) {
+        let cnt = contours.get(idx);
+        let pathData = contourToPath(cnt);
+        let bbox = getBoundingBox(cnt);
+        // Try to merge with an existing group if no intersection
+        let merged = false;
+        for (let g = 0; g < regionGroups.length; ++g) {
+          let groupBoxes = regionBoxes[g];
+          let intersects = groupBoxes.some(box => boxesIntersect(box, bbox));
+          if (!intersects) {
+            regionGroups[g].push(pathData);
+            groupBoxes.push(bbox);
+            merged = true;
+            break;
+          }
+        }
+        if (!merged) {
+          regionGroups.push([pathData]);
+          regionBoxes.push([bbox]);
+        }
+      }
+      used[idx] = true;
+      for (let childIdx of contourTree[idx].children) {
+        collectRegions(childIdx, depth + 1);
+      }
+    }
+    for (let i = 0; i < n; ++i) {
+      if (contourTree[i].parent === -1) collectRegions(i, 0);
+    }
+    // Now, for each group, create a single SVG layer
+    for (let group of regionGroups) {
+      let pathData = group.join(' ');
+      let svgElem = document.createElementNS(svgNS, 'svg');
+      svgElem.setAttribute('width', w);
+      svgElem.setAttribute('height', h);
+      svgElem.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      let pathElem = document.createElementNS(svgNS, 'path');
+      let color = `hsla(${bucket * 360 / colorCount}, 80%, 60%, 0.55)`;
+      pathElem.setAttribute('d', pathData);
+      pathElem.setAttribute('fill', color);
+      pathElem.setAttribute('stroke', '#333');
+      pathElem.setAttribute('stroke-width', '0.7');
+      svgElem.appendChild(pathElem);
+      svgElem.style.margin = '8px 0';
+      svgElems.push(svgElem);
+      combinedPaths.push(`<path d="${pathData}" fill="${color}" stroke="#333" stroke-width="0.7"/>`);
+    }
+    mask.delete();
+    contours.delete();
+    hierarchy.delete();
+  }
+  // Add layer controls (checkboxes)
+  let layerControls = document.createElement('div');
+  layerControls.style.display = 'flex';
+  layerControls.style.flexWrap = 'wrap';
+  layerControls.style.gap = '8px';
+  layerControls.style.marginBottom = '10px';
+  layerControls.style.alignItems = 'center';
+  let enableAllBtn = document.createElement('button');
+  enableAllBtn.textContent = 'Enable All';
+  enableAllBtn.style.marginRight = '6px';
+  let disableAllBtn = document.createElement('button');
+  disableAllBtn.textContent = 'Disable All';
+  disableAllBtn.style.marginRight = '16px';
+  layerControls.appendChild(enableAllBtn);
+  layerControls.appendChild(disableAllBtn);
+  let layerCheckboxes = [];
+
+  // Background layer control
+  let bgLabel = document.createElement('label');
+  bgLabel.style.display = 'flex';
+  bgLabel.style.alignItems = 'center';
+  bgLabel.style.gap = '4px';
+  let bgCb = document.createElement('input');
+  bgCb.type = 'checkbox';
+  bgCb.checked = true;
+  let bgSwatch = document.createElement('span');
+  let bgColor = '#f7f7f7';
+  bgSwatch.style.display = 'inline-block';
+  bgSwatch.style.width = '16px';
+  bgSwatch.style.height = '16px';
+  bgSwatch.style.background = bgColor;
+  bgSwatch.style.border = '1px solid #888';
+  bgSwatch.style.borderRadius = '3px';
+  bgLabel.appendChild(bgCb);
+  bgLabel.appendChild(bgSwatch);
+  bgLabel.appendChild(document.createTextNode('Background'));
+  layerControls.appendChild(bgLabel);
+
+  enableAllBtn.onclick = () => {
+    layerCheckboxes.forEach(cb => {
+      cb.checked = true;
+      cb.dispatchEvent(new Event('change'));
+    });
+    bgCb.checked = true;
+    bgCb.dispatchEvent(new Event('change'));
+  };
+  disableAllBtn.onclick = () => {
+    layerCheckboxes.forEach(cb => {
+      cb.checked = false;
+      cb.dispatchEvent(new Event('change'));
+    });
+    bgCb.checked = false;
+    bgCb.dispatchEvent(new Event('change'));
+  };
+  svgElems.forEach((svgElem, i) => {
+    let label = document.createElement('label');
+    label.style.display = 'flex';
+    label.style.alignItems = 'center';
+    label.style.gap = '4px';
+    let cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.layer = i;
+    layerCheckboxes.push(cb);
+    cb.onchange = () => {
+      svgElem.style.display = cb.checked ? '' : 'none';
+    };
+    let colorSwatch = document.createElement('span');
+    // Extract color from the SVG path fill
+    let path = svgElem.querySelector('path');
+    let color = path ? path.getAttribute('fill') : '#888';
+    colorSwatch.style.display = 'inline-block';
+    colorSwatch.style.width = '16px';
+    colorSwatch.style.height = '16px';
+    colorSwatch.style.background = color;
+    colorSwatch.style.border = '1px solid #888';
+    colorSwatch.style.borderRadius = '3px';
+    label.appendChild(cb);
+    label.appendChild(colorSwatch);
+    label.appendChild(document.createTextNode(`Layer ${i + 1}`));
+    layerControls.appendChild(label);
+  });
+  vectorPreview.appendChild(layerControls);
+  // Stack all stencils on top of each other in a single overlay container
+  let previewStack = document.createElement('div');
+  previewStack.style.position = 'relative';
+  previewStack.style.width = w + 'px';
+  previewStack.style.height = h + 'px';
+  previewStack.style.margin = '0 auto';
+  // Ensure the previewStack matches the aspect ratio
+  previewStack.style.aspectRatio = (w / h).toFixed(4);
+  // Add background layer as bottom-most layer
+  let bgDiv = document.createElement('div');
+  bgDiv.style.position = 'absolute';
+  bgDiv.style.left = '0';
+  bgDiv.style.top = '0';
+  bgDiv.style.width = '100%';
+  bgDiv.style.height = '100%';
+  bgDiv.style.background = bgColor;
+  bgDiv.style.zIndex = '0';
+  bgDiv.style.margin = '8px 0';
+  previewStack.appendChild(bgDiv);
+  bgCb.onchange = () => {
+    bgDiv.style.display = bgCb.checked ? '' : 'none';
+  };
+  svgElems.forEach((svgElem, i) => {
+    svgElem.style.position = 'absolute';
+    svgElem.style.left = '0';
+    svgElem.style.top = '0';
+    svgElem.style.width = '100%';
+    svgElem.style.height = '100%';
+    svgElem.style.pointerEvents = 'none';
+    svgElem.style.zIndex = (i + 1).toString();
+    previewStack.appendChild(svgElem);
+  });
+  vectorPreview.appendChild(previewStack);
+
+
+
+  // --- Enable SVG download (all regions combined) ---
+  let svgHeader = `<svg xmlns="http://www.w3.org/2000/svg" width="${image.width}" height="${image.height}" viewBox="0 0 ${image.width} ${image.height}">`;
+  let svgFooter = '</svg>';
+  let svgContent = svgHeader + combinedPaths.join('\n') + svgFooter;
+  const downloadSvgBtn = document.getElementById('downloadSvgBtn');
+  downloadSvgBtn.onclick = function () {
+    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'posterized.svg';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+  };
+  downloadSvgBtn.style.display = 'block';
+  vectorPreviewContainer.style.display = 'flex';
+
+  // --- Download All Layers (ZIP) ---
+  const downloadZipBtn = document.getElementById('downloadZipBtn');
+  downloadZipBtn.onclick = async function () {
+    if (!window.JSZip) {
+      alert('JSZip library not loaded.');
+      return;
+    }
+    const zip = new JSZip();
+    // Add background layer if enabled
+    if (bgCb.checked) {
+      const bgSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="100%" height="100%" fill="${bgColor}"/></svg>`;
+      zip.file('layer_background.svg', bgSvg);
+    }
+    // Add each visible layer as a separate SVG
+    svgElems.forEach((svgElem, i) => {
+      if (!layerCheckboxes[i].checked) return;
+      const pathElem = svgElem.querySelector('path');
+      const d = pathElem.getAttribute('d');
+      const fill = pathElem.getAttribute('fill');
+      const stroke = pathElem.getAttribute('stroke');
+      const strokeWidth = pathElem.getAttribute('stroke-width');
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/></svg>`;
+      zip.file(`layer_${i + 1}.svg`, svg);
+    });
+    // Generate zip and trigger download
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'posterize_layers.zip';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+  };
+});
+
+// --- Save/Load State ---
+function saveState() {
+  try {
+    const state = {
+      colorCount,
+      thresholds,
+      noiseEnable: noiseEnable.checked,
+      noiseThreshold: noiseThreshold.value,
+      smoothEnable: smoothEnable.checked,
+      smoothStrength: smoothStrength.value,
+      borderEnable: borderToggle.checked,
+      borderThickness: borderThicknessSlider.value,
+      aspectRatio: aspectRatioSetting,
+      cropMode: cropMode,
+      originalImageDataUrl: null
+    };
+    if (window._originalImageDataUrl) {
+      state.originalImageDataUrl = window._originalImageDataUrl;
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) { }
+}
+
+function loadState() {
+  try {
+    const state = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!state) return;
+    colorCount = parseInt(state.colorCount, 10);
+    colorCountSlider.value = String(colorCount);
+    colorCountLabel.innerText = String(colorCount);
+    thresholds = Array.isArray(state.thresholds) ? state.thresholds.map(v => parseInt(v, 10)) : [85, 170];
+    renderThresholdControls();
+    noiseEnable.checked = !!state.noiseEnable;
+    noiseThreshold.value = String(parseInt(state.noiseThreshold, 10));
+    noiseThresholdLabel.innerText = String(noiseThreshold.value);
+    noiseThreshold.disabled = !noiseEnable.checked;
+    smoothEnable.checked = !!state.smoothEnable;
+    smoothStrength.value = String(parseInt(state.smoothStrength, 10));
+    smoothStrengthLabel.innerText = String(smoothStrength.value);
+    smoothStrength.disabled = !smoothEnable.checked;
+    // Restore border state
+    if ('borderEnable' in state) borderToggle.checked = !!state.borderEnable;
+    if ('borderThickness' in state) borderThicknessSlider.value = String(parseInt(state.borderThickness, 10));
+    borderThicknessLabel.textContent = borderThicknessSlider.value;
+    borderThicknessSlider.disabled = !borderToggle.checked;
+    if (typeof state.aspectRatio === 'string') {
+      aspectRatioSetting = state.aspectRatio;
+      aspectRatioSelect.value = aspectRatioSetting;
+    }
+    if (typeof state.cropMode === 'string') {
+      cropMode = state.cropMode;
+      cropModeSelect.value = cropMode;
+    }
+    if (state.originalImageDataUrl) {
+      loadImage(null, state.originalImageDataUrl);
+    }
+  } catch (e) { }
+}
+
+// Initial render
+renderThresholdControls();
+loadState();
+// --- Border control listeners ---
+borderThicknessSlider.oninput = function () {
+  borderThicknessLabel.textContent = borderThicknessSlider.value;
+  saveState();
+  posterize();
+};
+borderToggle.onchange = function () {
+  borderThicknessSlider.disabled = !borderToggle.checked;
+  saveState();
+  posterize();
+};
+
+borderThicknessLabel.textContent = borderThicknessSlider.value;

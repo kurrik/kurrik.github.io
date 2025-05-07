@@ -4,10 +4,10 @@
   "scripts": {
     "clean": "rm -rf dist",
     "build:ts": "tsc",
-    "build:assets": "cpx \"src/**/*.{html,css,png,jpg,svg}\" dist",
+    "build:assets": "cpx \"src/**/*.{html,css,png,jpg,svg,js}\" dist",
     "build": "npm run clean && npm run build:ts && npm run build:assets",
     "dev:ts": "tsc --watch",
-    "dev:assets": "cpx \"src/**/*.{html,css,png,jpg,svg}\" dist --watch",
+    "dev:assets": "cpx \"src/**/*.{html,css,png,jpg,svg,js}\" dist --watch",
     "dev:serve": "serve dist -l 3000",
     "dev": "concurrently \"npm:dev:ts\" \"npm:dev:assets\" \"npm:dev:serve\""
   },
