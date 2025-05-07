@@ -1,5 +1,8 @@
 /**
- * Debounce utilities for improving UI performance
+ * Event Handling Adapter
+ * 
+ * Provides infrastructure services for handling DOM events,
+ * including debouncing for improving UI performance.
  */
 
 /**
@@ -27,19 +30,20 @@ export function debounce<T extends (...args: any[]) => any>(
 }
 
 /**
- * Singleton for debounced event dispatching
+ * Event debouncing service for the application
  */
-class EventDebouncer {
+class EventDebouncingService {
   private debounceTimers: Record<string, number> = {};
-  private readonly delay: number = 500; // ms
+  private readonly defaultDelay: number = 500; // ms
 
   /**
    * Dispatch an event with debouncing
    * @param eventName Name of the event to dispatch
+   * @param detail Optional event detail data
    * @param delay Optional custom delay (defaults to 500ms)
    */
   dispatchDebounced(eventName: string, detail?: any, delay?: number): void {
-    const actualDelay = delay ?? this.delay;
+    const actualDelay = delay ?? this.defaultDelay;
     
     // Clear any existing timer for this event
     if (this.debounceTimers[eventName]) {
@@ -60,4 +64,4 @@ class EventDebouncer {
 }
 
 // Export singleton instance
-export const eventDebouncer = new EventDebouncer();
+export const eventDebouncingService = new EventDebouncingService();

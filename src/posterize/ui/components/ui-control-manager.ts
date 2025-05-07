@@ -4,7 +4,7 @@
 import { IUIControlManager, AppState, VectorOutput } from '../../types/interfaces';
 import { ImageProcessingService } from '../../application/services/image-processing-service';
 import { StateManagementService } from '../../application/services/state-management-service';
-import { debounce } from '../../utils/debounce-utils';
+import { debounce } from '../../infrastructure/adapters/event-handling-adapter';
 import { VectorConversionService } from '../../domain/services/vector-conversion-service';
 import { ImageManager } from './image-manager';
 import { ColorControlManager } from './color-control-manager';

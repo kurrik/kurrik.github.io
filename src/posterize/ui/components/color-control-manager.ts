@@ -5,7 +5,7 @@ import { BaseManager } from './base-manager';
 import { IColorControlManager } from '../../types/manager-interfaces';
 import { StateManagementService } from '../../application/services/state-management-service';
 import { UIControlFactory } from './ui-control-factory';
-import { eventDebouncer, debounce } from '../../utils/debounce-utils';
+import { eventDebouncingService, debounce } from '../../infrastructure/adapters/event-handling-adapter';
 
 export class ColorControlManager extends BaseManager implements IColorControlManager {
   constructor(stateManagementService: StateManagementService) {
