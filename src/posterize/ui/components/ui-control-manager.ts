@@ -4,6 +4,7 @@
 import { IUIControlManager, AppState, VectorOutput } from '../../types/interfaces';
 import { ImageProcessingService } from '../../application/services/image-processing-service';
 import { StateManagementService } from '../../application/services/state-management-service';
+import { debounce } from '../../utils/debounce-utils';
 import { VectorConversionService } from '../../domain/services/vector-conversion-service';
 import { ImageManager } from './image-manager';
 import { ColorControlManager } from './color-control-manager';
@@ -133,10 +134,12 @@ export class UIControlManager implements IUIControlManager {
       this.imageManager.processImage();
     });
     
-    // Listen for vector preview events
-    document.addEventListener('posterize:generateVectorPreview', () => {
+    // Listen for vector preview events with debouncing (500ms)
+    const debouncedPreviewUpdate = debounce(() => {
       this.vectorControlManager.updatePreview();
-    });
+    }, 500);
+    
+    document.addEventListener('posterize:generateVectorPreview', debouncedPreviewUpdate);
     
     // Listen for download events
     document.addEventListener('posterize:downloadSvg', (e: Event) => {

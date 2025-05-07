@@ -25,7 +25,7 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
   private imageManager: ImageManager;
   private vectorConversionService: VectorConversionService;
   private debounceTimer: number | null = null;
-  private debounceDelay: number = 300; // ms
+  private debounceDelay: number = 500; // ms
   protected elements: Record<string, HTMLElement | null> = {};
 
   constructor(

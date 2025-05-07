@@ -5,6 +5,7 @@ import { BaseManager } from './base-manager';
 import { IColorControlManager } from '../../types/manager-interfaces';
 import { StateManagementService } from '../../application/services/state-management-service';
 import { UIControlFactory } from './ui-control-factory';
+import { eventDebouncer, debounce } from '../../utils/debounce-utils';
 
 export class ColorControlManager extends BaseManager implements IColorControlManager {
   constructor(stateManagementService: StateManagementService) {
@@ -87,11 +88,18 @@ export class ColorControlManager extends BaseManager implements IColorControlMan
     const { colorCountSlider, colorCountLabel } = this.elements;
 
     if (colorCountSlider && colorCountLabel) {
+      // Create debounced image process handler with 20ms delay
+      const debouncedImageProcess = debounce(() => {
+        // Signal that image needs to be reprocessed
+        const processImageEvent = new CustomEvent('posterize:processImage');
+        document.dispatchEvent(processImageEvent);
+      }, 20);
+      
       colorCountSlider.addEventListener('input', () => {
         const value = parseInt((colorCountSlider as HTMLInputElement).value, 10);
         (colorCountLabel as HTMLElement).innerText = value.toString();
 
-        // Update settings
+        // Update settings immediately
         // Cast to PosterizeSettingsModel to access the updateColorCount method
         const settings = this.currentState.posterizeSettings as any;
         if (typeof settings.updateColorCount === 'function') {
@@ -106,14 +114,13 @@ export class ColorControlManager extends BaseManager implements IColorControlMan
         }
         this.stateManagementService.saveState(this.currentState);
 
-        // Regenerate threshold controls
+        // Regenerate threshold controls immediately
         this.renderThresholdControls();
 
-        // Signal that image needs to be reprocessed
-        const processImageEvent = new CustomEvent('posterize:processImage');
-        document.dispatchEvent(processImageEvent);
+        // Debounce image processing (20ms delay)
+        debouncedImageProcess();
         
-        // Also trigger vector preview update
+        // Trigger vector preview update (already debounced globally at 500ms)
         const vectorPreviewEvent = new CustomEvent('posterize:generateVectorPreview');
         document.dispatchEvent(vectorPreviewEvent);
       });
@@ -155,23 +162,29 @@ export class ColorControlManager extends BaseManager implements IColorControlMan
         1
       );
       
+      // Create debounced event handlers with different delays
+      const debouncedImageProcess = debounce(() => {
+        // Signal that image needs to be reprocessed with a short 20ms delay
+        const processImageEvent = new CustomEvent('posterize:processImage');
+        document.dispatchEvent(processImageEvent);
+      }, 20); // Very short delay for responsive UI
+      
       // Add event listener
       slider.addEventListener('input', (e) => {
         const target = e.target as HTMLInputElement;
         const value = parseInt(target.value, 10);
         
-        // Update display
+        // Update display immediately
         valueDisplay.textContent = value.toString();
         
-        // Update state
+        // Update state immediately
         this.currentState.posterizeSettings.thresholds[i] = value;
         this.stateManagementService.saveState(this.currentState);
         
-        // Signal that image needs to be reprocessed
-        const processImageEvent = new CustomEvent('posterize:processImage');
-        document.dispatchEvent(processImageEvent);
+        // Debounce the image processing update (20ms)
+        debouncedImageProcess();
         
-        // Also trigger vector preview update
+        // Trigger vector preview update (already debounced globally at 500ms)
         const vectorPreviewEvent = new CustomEvent('posterize:generateVectorPreview');
         document.dispatchEvent(vectorPreviewEvent);
       });
