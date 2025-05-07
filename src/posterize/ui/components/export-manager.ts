@@ -22,24 +22,24 @@ export class ExportManager extends BaseManager implements IExportManager {
     // Get containers
     const exportButtonsContainer = document.getElementById('exportButtonsContainer');
     const actionButtonsContainer = document.getElementById('actionButtonsContainer');
-    
+
     // Initialize elements references
     this.elements = {
       exportButtonsContainer,
       actionButtonsContainer
     };
-    
+
     // Create reset button in action buttons container
     if (actionButtonsContainer) {
       this.createResetButton(actionButtonsContainer);
     }
-    
+
     // Create export buttons
     if (exportButtonsContainer) {
       this.createExportButtons(exportButtonsContainer);
     }
   }
-  
+
   /**
    * Create reset button
    */
@@ -54,13 +54,13 @@ export class ExportManager extends BaseManager implements IExportManager {
     resetBtn.style.border = 'none';
     resetBtn.style.borderRadius = '4px';
     resetBtn.style.cursor = 'pointer';
-    
+
     container.appendChild(resetBtn);
-    
+
     // Store reference
     this.elements.resetBtn = resetBtn;
   }
-  
+
   /**
    * Create export buttons
    */
@@ -77,7 +77,7 @@ export class ExportManager extends BaseManager implements IExportManager {
     downloadSvgBtn.style.border = 'none';
     downloadSvgBtn.style.borderRadius = '4px';
     downloadSvgBtn.style.cursor = 'pointer';
-    
+
     // Create download layers as ZIP button
     const downloadZipBtn = document.createElement('button');
     downloadZipBtn.id = 'downloadZipBtn';
@@ -90,15 +90,15 @@ export class ExportManager extends BaseManager implements IExportManager {
     downloadZipBtn.style.border = 'none';
     downloadZipBtn.style.borderRadius = '4px';
     downloadZipBtn.style.cursor = 'pointer';
-    
+
     // Append buttons to container
     container.appendChild(downloadSvgBtn);
     container.appendChild(downloadZipBtn);
-    
+
     // Store references
     this.elements.downloadSvgBtn = downloadSvgBtn;
     this.elements.downloadZipBtn = downloadZipBtn;
-    
+
     // Bind events immediately
     this.bindExportButtonEvents();
   }
@@ -109,13 +109,13 @@ export class ExportManager extends BaseManager implements IExportManager {
   public bindEvents(): void {
     this.bindExportButtonEvents();
   }
-  
+
   /**
    * Bind events to export buttons
    */
   private bindExportButtonEvents(): void {
     const { downloadSvgBtn, downloadZipBtn } = this.elements;
-    
+
     if (downloadSvgBtn) {
       downloadSvgBtn.addEventListener('click', () => {
         // Get vector output from the VectorOutputService
@@ -127,7 +127,7 @@ export class ExportManager extends BaseManager implements IExportManager {
         }
       });
     }
-    
+
     if (downloadZipBtn) {
       downloadZipBtn.addEventListener('click', () => {
         // Get vector output from the VectorOutputService
@@ -139,7 +139,7 @@ export class ExportManager extends BaseManager implements IExportManager {
         }
       });
     }
-    
+
     // Register for vector output changes to enable/disable buttons appropriately
     this.vectorOutputService.onVectorOutputChange((vectorOutput) => {
       // Enable the export buttons when vector output is available
