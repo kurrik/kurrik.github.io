@@ -159,7 +159,7 @@
         <span id="bezierSliderValue">3</span>
       </div>
       <div id="vectorPreview"></div>
-      <a id="downloadSvg" href="#" download="posterized.svg" style="display:block;margin-top:8px;">Download SVG</a>
+      <button id="downloadSvgBtn" style="display:block;margin-top:8px;">Download SVG</button>
       <button id="downloadZipBtn" style="display:block;margin-top:8px;">Download All Layers (ZIP)</button>
     </div>
     <div class="footer">Drop an image to begin. Adjust colors and thresholds to posterize.</div>
@@ -843,8 +843,21 @@
       let svgHeader = `<svg xmlns="http://www.w3.org/2000/svg" width="${image.width}" height="${image.height}" viewBox="0 0 ${image.width} ${image.height}">`;
       let svgFooter = '</svg>';
       let svgContent = svgHeader + combinedPaths.join('\n') + svgFooter;
-      downloadSvg.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgContent);
-      downloadSvg.style.display = 'block';
+      const downloadSvgBtn = document.getElementById('downloadSvgBtn');
+      downloadSvgBtn.onclick = function() {
+        const blob = new Blob([svgContent], {type: 'image/svg+xml'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'posterized.svg';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+      };
+      downloadSvgBtn.style.display = 'block';
       vectorPreviewContainer.style.display = 'flex';
 
       // --- Download All Layers (ZIP) ---
