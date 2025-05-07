@@ -718,11 +718,8 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
         const target = e.target as HTMLInputElement;
         const isVisible = target.checked;
         const layerId = target.getAttribute('data-layer-id');
-
         if (layerId) {
-          // Update layer visibility through the VectorOutputService
           this.vectorOutputService.updateLayerVisibility(layerId, isVisible);
-
           // Always fetch the latest vector output from the service and re-render
           const currentOutput = this.vectorOutputService.getVectorOutput();
           if (currentOutput) {

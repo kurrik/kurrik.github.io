@@ -126,7 +126,7 @@ export abstract class BaseVectorConversionStrategy implements IVectorConversionS
       });
 
       layers.push({
-        id: `layer-${bucket}`,
+        id: `layer-${bucket}-${layers.length}`,
         paths: pathsForBucket,
         visible: true
       });
@@ -269,7 +269,7 @@ export class StencilConversionStrategy extends BaseVectorConversionStrategy {
         for (let group of regionGroups) {
           const pathData = group.join(' ');
           layers.push({
-            id: `layer-${bucket}`,
+            id: `layer-${bucket}-${layers.length}`,
             paths: [{
               d: pathData,
               fill: color,
@@ -429,7 +429,7 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
         // Add this layer
         if (pathsForBucket.length > 0) {
           layers.push({
-            id: `layer-${bucket}`,
+            id: `layer-${bucket}-${layers.length}`,
             paths: pathsForBucket,
             visible: true
           });
