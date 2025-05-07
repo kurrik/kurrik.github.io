@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Posterize Utility App</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     body {
       font-family: system-ui, sans-serif;
@@ -159,6 +160,7 @@
       </div>
       <div id="vectorPreview"></div>
       <a id="downloadSvg" href="#" download="posterized.svg" style="display:block;margin-top:8px;">Download SVG</a>
+      <button id="downloadZipBtn" style="display:block;margin-top:8px;">Download All Layers (ZIP)</button>
     </div>
     <div class="footer">Drop an image to begin. Adjust colors and thresholds to posterize.</div>
   </div>
@@ -844,6 +846,44 @@
       downloadSvg.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgContent);
       downloadSvg.style.display = 'block';
       vectorPreviewContainer.style.display = 'flex';
+
+      // --- Download All Layers (ZIP) ---
+      const downloadZipBtn = document.getElementById('downloadZipBtn');
+      downloadZipBtn.onclick = async function() {
+        if (!window.JSZip) {
+          alert('JSZip library not loaded.');
+          return;
+        }
+        const zip = new JSZip();
+        // Add background layer if enabled
+        if (bgCb.checked) {
+          const bgSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="100%" height="100%" fill="${bgColor}"/></svg>`;
+          zip.file('layer_background.svg', bgSvg);
+        }
+        // Add each visible layer as a separate SVG
+        svgElems.forEach((svgElem, i) => {
+          if (!layerCheckboxes[i].checked) return;
+          const pathElem = svgElem.querySelector('path');
+          const d = pathElem.getAttribute('d');
+          const fill = pathElem.getAttribute('fill');
+          const stroke = pathElem.getAttribute('stroke');
+          const strokeWidth = pathElem.getAttribute('stroke-width');
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/></svg>`;
+          zip.file(`layer_${i+1}.svg`, svg);
+        });
+        // Generate zip and trigger download
+        const blob = await zip.generateAsync({type: 'blob'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'posterize_layers.zip';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+      };
     });
 
     // --- Save/Load State ---
