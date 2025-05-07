@@ -5,9 +5,13 @@ import { BaseManager } from './base-manager';
 import { IExportManager } from '../../types/manager-interfaces';
 import { VectorOutput } from '../../types/interfaces';
 import { StateManagementService } from '../../application/services/state-management-service';
+import { VectorOutputService } from '../../application/services/vector-output-service';
 
 export class ExportManager extends BaseManager implements IExportManager {
-  constructor(stateManagementService: StateManagementService) {
+  constructor(
+    stateManagementService: StateManagementService,
+    private vectorOutputService: VectorOutputService
+  ) {
     super(stateManagementService);
   }
 
@@ -114,31 +118,38 @@ export class ExportManager extends BaseManager implements IExportManager {
     
     if (downloadSvgBtn) {
       downloadSvgBtn.addEventListener('click', () => {
-        // Check if we have vector output from preview manager
-        if (window.previewManager && window.previewManager.getVectorOutput) {
-          const vectorOutput = window.previewManager.getVectorOutput();
-          if (vectorOutput) {
-            this.downloadSvgFile(vectorOutput);
-          } else {
-            alert('No vector preview available. Generate a preview first.');
-          }
+        // Get vector output from the VectorOutputService
+        const vectorOutput = this.vectorOutputService.getVectorOutput();
+        if (vectorOutput) {
+          this.downloadSvgFile(vectorOutput);
+        } else {
+          alert('No vector preview available. Generate a preview first.');
         }
       });
     }
     
     if (downloadZipBtn) {
       downloadZipBtn.addEventListener('click', () => {
-        // Check if we have vector output from preview manager
-        if (window.previewManager && window.previewManager.getVectorOutput) {
-          const vectorOutput = window.previewManager.getVectorOutput();
-          if (vectorOutput) {
-            this.downloadLayersAsZip(vectorOutput);
-          } else {
-            alert('No vector preview available. Generate a preview first.');
-          }
+        // Get vector output from the VectorOutputService
+        const vectorOutput = this.vectorOutputService.getVectorOutput();
+        if (vectorOutput) {
+          this.downloadLayersAsZip(vectorOutput);
+        } else {
+          alert('No vector preview available. Generate a preview first.');
         }
       });
     }
+    
+    // Register for vector output changes to enable/disable buttons appropriately
+    this.vectorOutputService.onVectorOutputChange((vectorOutput) => {
+      // Enable the export buttons when vector output is available
+      if (downloadSvgBtn) {
+        (downloadSvgBtn as HTMLButtonElement).disabled = false;
+      }
+      if (downloadZipBtn) {
+        (downloadZipBtn as HTMLButtonElement).disabled = false;
+      }
+    });
   }
 
   /**
@@ -175,6 +186,7 @@ export class ExportManager extends BaseManager implements IExportManager {
       const blob = new Blob([svgContent], { type: 'image/svg+xml' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
+      a.href = url; // Set the URL as the href attribute
       a.download = 'posterized.svg';
       document.body.appendChild(a);
       a.click();
@@ -229,6 +241,7 @@ export class ExportManager extends BaseManager implements IExportManager {
       const blob = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
+      a.href = url; // Set the URL as the href attribute
       a.download = 'posterize_layers.zip';
       document.body.appendChild(a);
       a.click();

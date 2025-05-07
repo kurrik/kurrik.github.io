@@ -3,18 +3,12 @@
  */
 import { BaseManager } from './base-manager';
 import { IVectorControlManager } from '../../types/manager-interfaces';
-import {
-  VectorOutput,
-  VectorLayer,
-  VectorPathData,
-  StrategyType,
-  AppState,
-  VectorSettings
-} from '../../types/interfaces';
-import { VectorConversionService } from '../../domain/services/vector-conversion-service';
+import { VectorOutput, StrategyType } from '../../types/interfaces';
 import { StateManagementService } from '../../application/services/state-management-service';
 import { ImageProcessingService } from '../../application/services/image-processing-service';
+import { VectorOutputService } from '../../application/services/vector-output-service';
 import { ImageManager } from './image-manager';
+import { VectorConversionService } from '../../domain/services/vector-conversion-service';
 
 /**
  * Manager for vector preview functionality
@@ -33,7 +27,8 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
     imageProcessingService: ImageProcessingService,
     stateManagementService: StateManagementService,
     imageManager: ImageManager,
-    vectorConversionService: VectorConversionService
+    vectorConversionService: VectorConversionService,
+    private vectorOutputService: VectorOutputService
   ) {
     super(stateManagementService);
     this.imageProcessingService = imageProcessingService;
@@ -497,13 +492,13 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
     // Instead of directly binding to the DOM elements that no longer exist in the HTML,
     // we'll listen for custom events that are triggered when those settings change.
     // This approach makes the components more loosely coupled.
-    
+
     // Listen for processImage events which indicate that posterize settings have changed
     document.addEventListener('posterize:processImage', () => {
       // Update the preview when image processing occurs
       this.debouncedUpdatePreview();
     });
-    
+
     // We could also bind to the bezier curve slider here
     const { bezierSlider } = this.elements;
     if (bezierSlider) {
@@ -577,7 +572,7 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
       console.warn('No image loaded, cannot update preview');
       return;
     }
-    
+
     // Check if the image data actually has valid data
     if (currentImageData.dimensions.width === 0 || currentImageData.dimensions.height === 0) {
       console.warn('Image data not fully loaded yet, deferring preview');
@@ -590,7 +585,7 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
         currentImageData,
         this.currentState.posterizeSettings
       );
-      
+
       // Make sure we got valid processed results
       if (!processedResult || !processedResult.processedImageData) {
         console.warn('Image processing did not return valid results');
@@ -602,7 +597,7 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
         processedResult,
         this.currentState.vectorSettings
       );
-      
+
       // Make sure we have valid vector output
       if (!vectorResult || !vectorResult.vectorOutput || !vectorResult.vectorOutput.layers || vectorResult.vectorOutput.layers.length === 0) {
         console.warn('Vector generation did not return valid results');
@@ -660,6 +655,12 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
   public renderVectorPreview(vectorOutput: VectorOutput): void {
     const { vectorPreview } = this.elements;
     if (!vectorPreview) return;
+
+    // Update the vector output service
+    this.vectorOutputService.setVectorOutput(vectorOutput);
+    
+    // Store the current vector output for local reference
+    this.lastVectorOutput = vectorOutput;
 
     // Clear existing content
     vectorPreview.innerHTML = '';
@@ -726,7 +727,7 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
 
     // Clear existing controls
     layerControls.innerHTML = '';
-    
+
     // Store a reference to the current vector output for future updates
     this.lastVectorOutput = vectorOutput;
 
@@ -758,22 +759,21 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
       checkbox.id = `layer-toggle-${i}`;
       checkbox.setAttribute('data-layer-id', layer.id);
       checkbox.style.marginRight = '8px';
-      
+
       // Add event listener that properly updates and re-renders the layer
       checkbox.addEventListener('change', (e) => {
         const target = e.target as HTMLInputElement;
         const isVisible = target.checked;
         const layerId = target.getAttribute('data-layer-id');
-        
+
         if (layerId) {
-          // Update the layer visibility in our stored reference
+          // Update layer visibility through the VectorOutputService
+          this.vectorOutputService.updateLayerVisibility(layerId, isVisible);
+          
+          // Re-render the vector preview if we have a current output
           if (this.lastVectorOutput) {
-            const layerToUpdate = this.lastVectorOutput.layers.find((l: { id: string; visible: boolean }) => l.id === layerId);
-            if (layerToUpdate) {
-              layerToUpdate.visible = isVisible;
-              // Re-render with updated visibility
-              this.renderVectorPreview(this.lastVectorOutput);
-            }
+            // The output service already updated the visibility, just re-render it
+            this.renderVectorPreview(this.lastVectorOutput);
           }
         }
       });
@@ -813,11 +813,12 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
    * Get the current vector output from the preview
    */
   private getCurrentVectorOutput(): VectorOutput | null {
-    // Try to use the preview manager if available
-    if (window.previewManager && typeof window.previewManager.getVectorOutput === 'function') {
-      return window.previewManager.getVectorOutput();
+    // First try to get the vector output from the VectorOutputService
+    const vectorOutput = this.vectorOutputService.getVectorOutput();
+    if (vectorOutput) {
+      return vectorOutput;
     }
-
+    
     // Otherwise, we'll need to regenerate it
     try {
       const currentImageData = this.imageManager.getCurrentImageData();
@@ -833,27 +834,31 @@ export class VectorControlManager extends BaseManager implements IVectorControlM
         this.currentState.vectorSettings
       );
 
+      // Store the generated vector output in the service for other components to access
+      if (vectorResult.vectorOutput) {
+        this.vectorOutputService.setVectorOutput(vectorResult.vectorOutput);
+      }
+      
       return vectorResult.vectorOutput;
     } catch (error) {
       console.error('Error getting current vector output:', error);
       return null;
     }
   }
-
+  
   /**
    * Set visibility for all layers
    */
   private setAllLayersVisibility(visible: boolean): void {
-    const currentOutput = this.getCurrentVectorOutput();
-    if (!currentOutput) return;
+    // Use the VectorOutputService to update all layers' visibility
+    this.vectorOutputService.setAllLayersVisibility(visible);
+    
+    // Get the current vector output after visibility has been updated
+    const vectorOutput = this.getCurrentVectorOutput();
+    if (!vectorOutput) return;
 
-    // Update all layers
-    currentOutput.layers.forEach(layer => {
-      layer.visible = visible;
-    });
-
-    // Re-render with updated visibility
-    this.renderVectorPreview(currentOutput);
+    // Re-render the preview
+    this.renderVectorPreview(vectorOutput);
   }
 
   /**

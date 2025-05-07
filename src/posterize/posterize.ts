@@ -8,6 +8,7 @@
 import { ImageProcessingService } from './application/services/image-processing-service';
 import { StateManagementService } from './application/services/state-management-service';
 import { ExportService } from './application/services/export-service';
+import { VectorOutputService } from './application/services/vector-output-service';
 
 import { PosterizeService } from './domain/services/posterize-service';
 import { NoiseRemovalService } from './domain/services/noise-removal-service';
@@ -36,6 +37,7 @@ class PosterizeApp {
   private imageProcessingService: ImageProcessingService;
   private stateManagementService: StateManagementService;
   private exportService: ExportService;
+  private vectorOutputService: VectorOutputService;
   
   // UI Components
   private uiControlManager: UIControlManager;
@@ -64,6 +66,7 @@ class PosterizeApp {
     this.imageProcessingService = new ImageProcessingService();
     this.stateManagementService = new StateManagementService(this.localStorageAdapter);
     this.exportService = new ExportService(this.fileSystemAdapter);
+    this.vectorOutputService = new VectorOutputService(); // Initialize the VectorOutputService
     
     // Initialize view models
     this.imageViewModel = new ImageViewModel();
@@ -73,7 +76,8 @@ class PosterizeApp {
     // Initialize UI components
     this.uiControlManager = new UIControlManager(
       this.imageProcessingService,
-      this.stateManagementService
+      this.stateManagementService,
+      this.vectorOutputService  // Inject the VectorOutputService
     );
     this.layerPanelManager = new LayerPanelManager();
     this.previewManager = new PreviewManager();

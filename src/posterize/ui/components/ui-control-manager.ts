@@ -4,6 +4,7 @@
 import { IUIControlManager, AppState, VectorOutput } from '../../types/interfaces';
 import { ImageProcessingService } from '../../application/services/image-processing-service';
 import { StateManagementService } from '../../application/services/state-management-service';
+import { VectorOutputService } from '../../application/services/vector-output-service';
 import { debounce } from '../../infrastructure/adapters/event-handling-adapter';
 import { VectorConversionService } from '../../domain/services/vector-conversion-service';
 import { ImageManager } from './image-manager';
@@ -32,6 +33,7 @@ declare global {
 export class UIControlManager implements IUIControlManager {
   private stateManagementService: StateManagementService;
   private imageProcessingService: ImageProcessingService;
+  private vectorOutputService: VectorOutputService;
   private vectorConversionService: VectorConversionService = new VectorConversionService();
   private currentState: AppState;
   
@@ -52,10 +54,12 @@ export class UIControlManager implements IUIControlManager {
 
   constructor(
     imageProcessingService: ImageProcessingService,
-    stateManagementService: StateManagementService
+    stateManagementService: StateManagementService,
+    vectorOutputService: VectorOutputService
   ) {
-    this.imageProcessingService = imageProcessingService;
     this.stateManagementService = stateManagementService;
+    this.imageProcessingService = imageProcessingService;
+    this.vectorOutputService = vectorOutputService;
     this.currentState = stateManagementService.getDefaultState();
     
     // Create all managers
@@ -81,9 +85,13 @@ export class UIControlManager implements IUIControlManager {
       this.imageProcessingService, 
       this.stateManagementService, 
       this.imageManager, 
-      this.vectorConversionService
+      this.vectorConversionService,
+      this.vectorOutputService
     );
-    this.exportManager = new ExportManager(this.stateManagementService);
+    this.exportManager = new ExportManager(
+      this.stateManagementService,
+      this.vectorOutputService
+    );
     
     // Initialize all managers
     this.imageManager.initialize();
