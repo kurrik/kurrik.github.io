@@ -141,10 +141,15 @@
   
   // Initialize component
   onMount(() => {
-    // Set up a handler for vector output changes
-    const handleVectorOutputChange = (output: VectorOutput) => {
+    // Set up a handler for vector output changes that accepts null values
+    const handleVectorOutputChange = (output: VectorOutput | null) => {
       console.log('ExportControl: Vector output updated', output);
-      onVectorOutputChange(output);
+      if (output) {
+        onVectorOutputChange(output);
+      } else {
+        // Handle null vector output case - disable export options
+        hasVectorOutput = false;
+      }
     };
     
     // Subscribe to vector output changes using the service's subscription method

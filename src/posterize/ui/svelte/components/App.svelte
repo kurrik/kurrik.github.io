@@ -187,6 +187,14 @@
     }
   }
 
+  // Tab state management
+  let activeTab = 'colors';
+  
+  // Function to switch tabs
+  function setActiveTab(tabName: string) {
+    activeTab = tabName;
+  }
+
   // Initialize application state and services
   onMount(() => {
     // Set up individual services in context
@@ -256,8 +264,8 @@
   {#if appInitialized}
     <div class="app-container">
       <div class="panels-container">
-        <!-- Left panel: image loading and crop controls -->
-        <div class="left-column">
+        <!-- Main panel: image, image processing, and vector controls -->
+        <div class="main-column">
           <div class="control-panel">
             <h2>Image</h2>
             <!-- @ts-ignore: Svelte component typing during migration -->
@@ -266,46 +274,52 @@
               on:imageLoaded={handleImageLoaded}
             />
           </div>
-
-          <div class="control-panel">
-            <h2>Dimensions</h2>
-            <!-- @ts-ignore: Svelte component typing during migration -->
-            <CropControl />
+          
+          <div class="control-panel consolidated-panel">
+            <h2>Image Processing</h2>
+            <div class="tabs">
+              <div class="tab-header">
+                <button class="tab-button {activeTab === 'colors' ? 'active' : ''}" on:click={() => setActiveTab('colors')}>Colors</button>
+                <button class="tab-button {activeTab === 'noise' ? 'active' : ''}" on:click={() => setActiveTab('noise')}>Noise</button>
+                <button class="tab-button {activeTab === 'smoothing' ? 'active' : ''}" on:click={() => setActiveTab('smoothing')}>Smoothing</button>
+                <button class="tab-button {activeTab === 'borders' ? 'active' : ''}" on:click={() => setActiveTab('borders')}>Borders</button>
+              </div>
+              <div class="tab-content">
+                <div class="tab-pane {activeTab === 'colors' ? 'active' : ''}">
+                  <!-- @ts-ignore: Svelte component typing during migration -->
+                  <ColorControl />
+                </div>
+                <div class="tab-pane {activeTab === 'noise' ? 'active' : ''}">
+                  <!-- @ts-ignore: Svelte component typing during migration -->
+                  <NoiseControl />
+                </div>
+                <div class="tab-pane {activeTab === 'smoothing' ? 'active' : ''}">
+                  <!-- @ts-ignore: Svelte component typing during migration -->
+                  <SmoothingControl />
+                </div>
+                <div class="tab-pane {activeTab === 'borders' ? 'active' : ''}">
+                  <!-- @ts-ignore: Svelte component typing during migration -->
+                  <BorderControl />
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-
-        <!-- Right panel: all other controls -->
-        <div class="right-column">
-          <div class="control-panel">
-            <h2>Colors</h2>
-            <!-- @ts-ignore: Svelte component typing during migration -->
-            <ColorControl />
-          </div>
-
-          <div class="control-panel">
-            <h2>Noise</h2>
-            <!-- @ts-ignore: Svelte component typing during migration -->
-            <NoiseControl />
-          </div>
-
-          <div class="control-panel">
-            <h2>Smoothing</h2>
-            <!-- @ts-ignore: Svelte component typing during migration -->
-            <SmoothingControl />
-          </div>
-
-          <div class="control-panel">
-            <h2>Borders</h2>
-            <!-- @ts-ignore: Svelte component typing during migration -->
-            <BorderControl />
-          </div>
-
+          
           <div class="control-panel">
             <h2>Vector</h2>
             <!-- @ts-ignore: Svelte component typing during migration -->
             <VectorControl />
           </div>
+        </div>
 
+        <!-- Sidebar panel: dimensions and export controls -->
+        <div class="sidebar-column">
+          <div class="control-panel">
+            <h2>Dimensions</h2>
+            <!-- @ts-ignore: Svelte component typing during migration -->
+            <CropControl />
+          </div>
+          
           <div class="control-panel">
             <h2>Export</h2>
             <!-- @ts-ignore: Svelte component typing during migration -->
@@ -343,8 +357,8 @@
     width: 100%;
   }
 
-  .left-column,
-  .right-column {
+  .main-column,
+  .sidebar-column {
     display: flex;
     flex-direction: column;
     gap: 1rem;
@@ -375,6 +389,54 @@
     margin-bottom: 1rem;
   }
 
+  /* Tabbed interface styles */
+  .tabs {
+    width: 100%;
+  }
+  
+  .tab-header {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 1rem;
+  }
+  
+  .tab-button {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: #666;
+    font-weight: 500;
+    transition: all 0.2s ease;
+  }
+  
+  .tab-button:hover {
+    color: #333;
+  }
+  
+  .tab-button.active {
+    color: #2c3e50;
+    border-bottom: 2px solid #42b983;
+  }
+  
+  .tab-content {
+    padding: 0.5rem 0;
+  }
+  
+  .tab-pane {
+    display: none;
+  }
+  
+  .tab-pane.active {
+    display: block;
+  }
+  
+  .consolidated-panel {
+    background-color: #fff;
+    border: 1px solid #eee;
+  }
+
   /* Media query for desktop */
   @media (min-width: 768px) {
     .panels-container {
@@ -382,12 +444,12 @@
       align-items: flex-start;
     }
 
-    .left-column {
-      width: 30%;
+    .main-column {
+      width: 70%;
     }
 
-    .right-column {
-      width: 70%;
+    .sidebar-column {
+      width: 30%;
     }
   }
 </style>
