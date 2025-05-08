@@ -7,7 +7,7 @@
    * Replaces the NoiseControlManager while maintaining DDD principles.
    */
   import { onMount, getContext } from 'svelte';
-  import { posterizeSettings, noiseSettings } from '../stores/posterizeState';
+  import { posterizeState, posterizeSettings, noiseSettings } from '../stores/posterizeState';
   import { StateManagementService } from '../../../application/services/state-management-service';
   
   // Get services from context (injected by parent)
@@ -25,19 +25,22 @@
   function updateNoiseEnabled(value: boolean) {
     enabled = value;
     
-    // Update the posterize settings
-    $posterizeSettings = {
-      ...$posterizeSettings,
+    // Get current settings
+    const currentSettings = { ...stateService.getDefaultState().posterizeSettings };
+    
+    // Create updated settings
+    const updatedSettings = {
+      ...currentSettings,
       noiseSettings: {
-        ...$posterizeSettings.noiseSettings,
+        ...currentSettings.noiseSettings,
         enabled: value
       }
     };
     
-    // Save state via service (maintains domain integrity)
-    let state = stateService.getDefaultState();
-    state.posterizeSettings = $posterizeSettings;
-    stateService.saveState(state);
+    // Update state using the store API instead of direct assignment
+    posterizeState.updatePartialState({
+      posterizeSettings: updatedSettings
+    });
     
     // Trigger image processing
     const processImageEvent = new CustomEvent('posterize:processImage');
@@ -48,19 +51,22 @@
   function updateMinRegionSize(value: number) {
     minRegionSize = value;
     
-    // Update the posterize settings
-    $posterizeSettings = {
-      ...$posterizeSettings,
+    // Get current settings
+    const currentSettings = { ...stateService.getDefaultState().posterizeSettings };
+    
+    // Create updated settings
+    const updatedSettings = {
+      ...currentSettings,
       noiseSettings: {
-        ...$posterizeSettings.noiseSettings,
+        ...currentSettings.noiseSettings,
         minRegionSize: value
       }
     };
     
-    // Save state via service
-    let state = stateService.getDefaultState();
-    state.posterizeSettings = $posterizeSettings;
-    stateService.saveState(state);
+    // Update state using the store API instead of direct assignment
+    posterizeState.updatePartialState({
+      posterizeSettings: updatedSettings
+    });
     
     // Only trigger reprocessing if noise removal is enabled
     if (enabled) {

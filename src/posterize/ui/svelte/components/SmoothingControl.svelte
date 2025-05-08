@@ -7,7 +7,7 @@
    * Replaces the SmoothingControlManager while maintaining DDD principles.
    */
   import { onMount, getContext } from 'svelte';
-  import { posterizeSettings, smoothSettings } from '../stores/posterizeState';
+  import { posterizeState, posterizeSettings, smoothSettings } from '../stores/posterizeState';
   import { StateManagementService } from '../../../application/services/state-management-service';
   
   // Get services from context (injected by parent)
@@ -25,19 +25,22 @@
   function updateSmoothingEnabled(value: boolean) {
     enabled = value;
     
-    // Update the posterize settings
-    $posterizeSettings = {
-      ...$posterizeSettings,
+    // Get current settings
+    const currentSettings = { ...stateService.getDefaultState().posterizeSettings };
+    
+    // Create updated settings
+    const updatedSettings = {
+      ...currentSettings,
       smoothSettings: {
-        ...$posterizeSettings.smoothSettings,
+        ...currentSettings.smoothSettings,
         enabled: value
       }
     };
     
-    // Save state via service (maintains domain integrity)
-    let state = stateService.getDefaultState();
-    state.posterizeSettings = $posterizeSettings;
-    stateService.saveState(state);
+    // Update state using the store API instead of direct assignment
+    posterizeState.updatePartialState({
+      posterizeSettings: updatedSettings
+    });
     
     // Trigger image processing
     const processImageEvent = new CustomEvent('posterize:processImage');
@@ -48,19 +51,22 @@
   function updateSmoothingStrength(value: number) {
     strength = value;
     
-    // Update the posterize settings
-    $posterizeSettings = {
-      ...$posterizeSettings,
+    // Get current settings
+    const currentSettings = { ...stateService.getDefaultState().posterizeSettings };
+    
+    // Create updated settings
+    const updatedSettings = {
+      ...currentSettings,
       smoothSettings: {
-        ...$posterizeSettings.smoothSettings,
+        ...currentSettings.smoothSettings,
         strength: value
       }
     };
     
-    // Save state via service
-    let state = stateService.getDefaultState();
-    state.posterizeSettings = $posterizeSettings;
-    stateService.saveState(state);
+    // Update state using the store API instead of direct assignment
+    posterizeState.updatePartialState({
+      posterizeSettings: updatedSettings
+    });
     
     // Only trigger reprocessing if smoothing is enabled
     if (enabled) {

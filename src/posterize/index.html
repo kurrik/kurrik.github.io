@@ -124,37 +124,15 @@
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Posterize Image</h2>
-    <div id="dropzone" class="dropzone">
-      Drag & Drop Image Here<br>or Click to Select
-      <input type="file" id="fileInput" accept="image/*" style="display:none">
-    </div>
-    <canvas id="canvas" width="320" height="180" style="display:none;" willReadFrequently></canvas>
-    
+  <div id="app" class="app-container">
+    <h1>Posterize Image</h1>
+
     <!-- Svelte App Mount Point - All UI will be rendered by Svelte components -->
     <div id="posterize-svelte-app" class="svelte-app-container" style="width: 100%;"></div>
-    
-    <!-- Legacy container IDs kept for backward compatibility during migration -->
-    <div style="display:none;">
-      <div id="controlsContainer"></div>
-      <div id="colorControlsContainer"></div>
-      <div id="thresholdControlsContainer"></div>
-      <div id="aspectRatioControlsContainer"></div>
-      <div id="borderControlsContainer"></div>
-      <div id="noiseControlsContainer"></div>
-      <div id="smoothControlsContainer"></div>
-      <div id="actionButtonsContainer"></div>
-      <div id="vectorPreviewContainer"></div>
-      <div id="strategyControlsContainer"></div>
-      <div id="stencilControls"></div>
-      <div id="penDrawingControls"></div>
-      <div id="vectorPreview"></div>
-      <div id="layerControls"></div>
-      <div id="exportButtonsContainer"></div>
-    </div>
+
     <div class="footer">Drop an image to begin. Adjust colors and thresholds to posterize.</div>
   </div>
+
   <script async src="https://docs.opencv.org/3.4.0/opencv.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script>

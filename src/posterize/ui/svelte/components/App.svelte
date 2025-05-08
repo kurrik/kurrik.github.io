@@ -118,10 +118,32 @@
 
     // Hide dropzone and show canvas
     const dropzone = document.getElementById("dropzone");
-    const canvas = document.getElementById("canvas");
+    const canvas = document.getElementById("canvas") as HTMLCanvasElement;
     if (dropzone && canvas) {
       dropzone.style.display = "none";
       canvas.style.display = "block";
+      
+      // Ensure the canvas is visible in the center of the app
+      canvas.style.margin = "1rem auto";
+      canvas.style.display = "block";
+      canvas.style.maxWidth = "100%";
+      canvas.style.border = "1px solid #ccc";
+      canvas.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+      
+      // Draw the image on the canvas right away for immediate feedback
+      const ctx = canvas.getContext('2d');
+      if (ctx && imageData) {
+        // Set canvas dimensions to match image
+        canvas.width = imageData.dimensions.width;
+        canvas.height = imageData.dimensions.height;
+        
+        // Create ImageData object from our pixel data
+        const canvasImageData = ctx.createImageData(imageData.dimensions.width, imageData.dimensions.height);
+        canvasImageData.data.set(imageData.pixels);
+        
+        // Draw image data to canvas
+        ctx.putImageData(canvasImageData, 0, 0);
+      }
     }
 
     // Process image and update state
@@ -130,6 +152,38 @@
       detail: { imageData },
     });
     document.dispatchEvent(processImageEvent);
+    
+    // Ensure we show a processed preview right away
+    // This gives immediate feedback while other operations occur
+    try {
+      // Process image with current settings to show a preview
+      const state = stateManagementService.getDefaultState();
+      if (state) {
+        const processedResult = imageProcessingService.processImage(imageData, state.posterizeSettings);
+        if (processedResult && processedResult.processedImageData) {
+          // Get the canvas and draw the processed image
+          const canvas = document.getElementById("canvas") as HTMLCanvasElement;
+          if (canvas) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              // Ensure canvas dimensions match image
+              canvas.width = processedResult.processedImageData.dimensions.width;
+              canvas.height = processedResult.processedImageData.dimensions.height;
+              
+              // Create ImageData and draw it
+              const canvasImageData = ctx.createImageData(
+                processedResult.processedImageData.dimensions.width,
+                processedResult.processedImageData.dimensions.height
+              );
+              canvasImageData.data.set(processedResult.processedImageData.pixels);
+              ctx.putImageData(canvasImageData, 0, 0);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error displaying image preview:", error);
+    }
   }
 
   // Initialize application state and services

@@ -6,7 +6,8 @@
    * Provides UI for loading and displaying images in the posterize app.
    * Replaces the ImageManager while maintaining DDD principles.
    */
-  import { onMount, getContext, createEventDispatcher } from 'svelte';
+  import { onMount, getContext, createEventDispatcher } from 'svelte';  
+  import { get } from 'svelte/store';
   import { posterizeState } from '../stores/posterizeState';
   import { StateManagementService } from '../../../application/services/state-management-service';
   import { ImageProcessingService } from '../../../application/services/image-processing-service';
@@ -145,12 +146,19 @@
       // Show canvas
       canvasElement.style.display = '';
       
-      // Save state
-      $posterizeState = {
-        ...$posterizeState,
+      // Save state - use the state service directly instead of trying to update the store
+      // This fixes the "store.set is not a function" error
+      const currentState = get(posterizeState);
+      const updatedState = {
+        ...currentState,
         originalImageDataUrl: url
       };
-      stateService.saveState($posterizeState);
+      stateService.saveState(updatedState);
+      
+      // Update the store using the correct store API method
+      posterizeState.updatePartialState({
+        originalImageDataUrl: url
+      });
       
       // Signal that we have new image data
       dispatch('imageLoaded', { imageData: currentImageData });

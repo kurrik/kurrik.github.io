@@ -7,198 +7,158 @@
    * Replaces the ColorControlManager while maintaining DDD principles.
    */
   import { onMount, getContext } from 'svelte';
-  import { posterizeSettings, colorSettings } from '../stores/posterizeState';
+  import { get } from 'svelte/store';
+  import { posterizeState, posterizeSettings } from '../stores/posterizeState';
   import { StateManagementService } from '../../../application/services/state-management-service';
   import { ImageProcessingService } from '../../../application/services/image-processing-service';
-  import { VectorOutputService } from '../../../application/services/vector-output-service';
-  
-  // Local state
-  let colorCount = 2;
-  let thresholds: number[] = [];
-  let thresholdElements: {[key: string]: HTMLElement | null} = {};
   
   // Get services from context (injected by parent)
   interface Services {
     stateService: StateManagementService;
     imageService: ImageProcessingService;
-    vectorService: VectorOutputService;
   }
   const services = getContext<Services>('services');
-  const { stateService } = services;
+  const { stateService, imageService } = services;
   
-  // Function to create/update threshold controls reactively
-  function createThresholdControls(container: HTMLElement | null) {
-    if (!container) return;
-    
-    // Clear existing controls
-    container.innerHTML = '';
-    
-    // Create container for threshold sliders
-    const thresholdControls = document.createElement('div');
-    thresholdControls.id = 'thresholdControls';
-    container.appendChild(thresholdControls);
-    
-    // Create sliders for each threshold
-    for (let i = 0; i < colorCount - 1; i++) {
-      const threshold = thresholds[i] || Math.round(255 * (i + 1) / colorCount);
-      
-      // Create threshold control group
-      const group = document.createElement('div');
-      group.className = 'control-group';
-      
-      // Create label
-      const label = document.createElement('label');
-      label.textContent = `Threshold ${i + 1}`;
-      group.appendChild(label);
-      
-      // Create slider container
-      const sliderContainer = document.createElement('div');
-      sliderContainer.className = 'slider-container';
-      
-      // Create slider
-      const slider = document.createElement('input');
-      slider.type = 'range';
-      slider.min = '1';
-      slider.max = '254';
-      slider.value = threshold.toString();
-      slider.className = 'threshold-slider';
-      slider.dataset.index = i.toString();
-      
-      // Create value display
-      const valueDisplay = document.createElement('span');
-      valueDisplay.className = 'value-display';
-      valueDisplay.textContent = threshold.toString();
-      
-      // Add elements to container
-      sliderContainer.appendChild(slider);
-      sliderContainer.appendChild(valueDisplay);
-      group.appendChild(sliderContainer);
-      
-      // Add to threshold controls
-      thresholdControls.appendChild(group);
-      
-      // Store references
-      thresholdElements[`slider-${i}`] = slider;
-      thresholdElements[`label-${i}`] = valueDisplay;
-      
-      // Add event listener
-      slider.addEventListener('input', () => {
-        const value = parseInt(slider.value, 10);
-        valueDisplay.textContent = value.toString();
-        
-        // Update threshold in state
-        updateThreshold(i, value);
-      });
+  // Reactive data from store
+  $: colorCount = $posterizeSettings?.colorCount || 2;
+  $: thresholds = $posterizeSettings?.thresholds || [];
+  
+  // Monitor store values to ensure local state stays updated
+  $: {
+    if ($posterizeSettings) {
+      // Ensure our local variables track the store values
+      colorCount = $posterizeSettings.colorCount || 2;
+      thresholds = $posterizeSettings.thresholds || [];
     }
   }
   
-  // Helper to update a specific threshold
-  function updateThreshold(index: number, value: number) {
-    // Update the threshold
+  // Using onMount to ensure any initial inconsistencies are fixed
+  onMount(() => {
+    // If the thresholds don't match the color count at startup, fix them
+    if (colorCount > 1 && thresholds.length !== colorCount - 1) {
+      const newThresholds = generateEvenThresholds(colorCount);
+      updateThresholds(newThresholds);
+      console.log('Fixed initial threshold count on mount:', newThresholds);
+    }
+  });
+  
+  // Function to generate evenly distributed thresholds
+  function generateEvenThresholds(count: number): number[] {
+    const newThresholds: number[] = [];
+    for (let i = 0; i < count - 1; i++) {
+      newThresholds.push(Math.round(255 * (i + 1) / count));
+    }
+    return newThresholds;
+  }
+  
+  // Update color count and immediately generate appropriate thresholds
+  function handleColorCountChange(event: Event) {
+    const value = parseInt((event.target as HTMLInputElement).value);
+    if (value >= 2 && value <= 8) {
+      // Generate new thresholds array for this color count
+      const newThresholds = generateEvenThresholds(value);
+      
+      // Update both color count and thresholds in a single operation
+      updateSettings({
+        ...get(posterizeSettings),
+        colorCount: value,
+        thresholds: newThresholds
+      });
+      
+      console.log(`Updated color count to ${value} with ${newThresholds.length} thresholds:`, newThresholds);
+    }
+  }
+  
+  // Update a single threshold
+  function handleThresholdChange(index: number, event: Event) {
+    const value = parseInt((event.target as HTMLInputElement).value);
     const newThresholds = [...thresholds];
     newThresholds[index] = value;
-    
-    // Update the store
-    $posterizeSettings = {
-      ...$posterizeSettings,
+    updateThresholds(newThresholds);
+  }
+  
+  // Update the thresholds in state
+  function updateThresholds(newThresholds: number[]) {
+    updateSettings({
+      ...get(posterizeSettings),
       thresholds: newThresholds
-    };
-    
-    // Save state via service (maintains domain integrity)
-    let state = stateService.getDefaultState();
-    state.posterizeSettings = $posterizeSettings;
-    stateService.saveState(state);
-    
-    // Trigger image processing
-    const processImageEvent = new CustomEvent('posterize:processImage');
-    document.dispatchEvent(processImageEvent);
-    
-    // Trigger vector preview update
-    const vectorPreviewEvent = new CustomEvent('posterize:generateVectorPreview');
-    document.dispatchEvent(vectorPreviewEvent);
+    });
   }
   
-  // Handle color count changes
-  function updateColorCount(value: number) {
-    // Update local state
-    colorCount = value;
+  // Update posterize settings
+  function updateSettings(newSettings: any) {
+    // Update state via state management service
+    posterizeState.updatePartialState({
+      posterizeSettings: newSettings
+    });
     
-    // Update the application state
-    $posterizeSettings = {
-      ...$posterizeSettings,
-      colorCount: value,
-      thresholds: Array.from(
-        { length: value - 1 },
-        (_, i) => Math.round(255 * (i + 1) / value)
-      )
-    };
-    
-    // Save state via service
-    let state = stateService.getDefaultState();
-    state.posterizeSettings = $posterizeSettings;
-    stateService.saveState(state);
-    
-    // Re-render threshold controls
-    const container = document.getElementById('thresholdControlsContainer');
-    createThresholdControls(container);
-    
-    // Trigger image processing
-    const processImageEvent = new CustomEvent('posterize:processImage');
-    document.dispatchEvent(processImageEvent);
-    
-    // Trigger vector preview update
-    const vectorPreviewEvent = new CustomEvent('posterize:generateVectorPreview');
-    document.dispatchEvent(vectorPreviewEvent);
-  }
-  
-  // Reactive updates
-  $: {
-    // When posterize settings change, update local state
-    colorCount = $posterizeSettings.colorCount;
-    thresholds = $posterizeSettings.thresholds;
+    // Dispatch event to trigger image processing
+    const event = new CustomEvent('posterize:processImage', {
+      detail: { settings: newSettings }
+    });
+    document.dispatchEvent(event);
   }
   
   // Component initialization
   onMount(() => {
-    // Create threshold controls
-    const container = document.getElementById('thresholdControlsContainer');
-    createThresholdControls(container);
-    
-    return () => {
-      // Cleanup
-      Object.values(thresholdElements).forEach(element => {
-        if (element && element.parentNode) {
-          element.parentNode.removeChild(element);
-        }
-      });
-    };
+    // Log initial state for debugging
+    console.log('ColorControl mounted with', colorCount, 'colors and', thresholds.length, 'thresholds');
   });
 </script>
 
 <div class="color-controls">
   <!-- Color count control -->
   <div class="section-header">
-    <h3>Color Thresholds</h3>
+    <h3>Color Count</h3>
   </div>
   
-  <div class="control-group threshold-slider" style="margin-bottom: 12px">
-    <label for="colorCount">Color Count</label>
+  <div class="control-group">
+    <label for="colorCountInput">Number of Colors:</label>
     <div class="slider-container">
       <input 
         type="range" 
-        id="colorCount" 
+        id="colorCountInput" 
         min="2" 
         max="8" 
         step="1" 
         value={colorCount}
-        on:input={(e) => updateColorCount(parseInt(e.currentTarget.value, 10))}
+        on:input={e => handleColorCountChange(e)}
       />
       <span class="value-display">{colorCount}</span>
     </div>
   </div>
   
-  <!-- Threshold controls will be rendered by JS in the thresholdControlsContainer -->
-  <!-- This demonstrates a hybrid approach during migration -->
+  <!-- Individual threshold sliders -->
+  <div class="section-header">
+    <h3>Color Thresholds</h3>
+    <small>Adjust individual thresholds for precise color separation</small>
+  </div>
+  
+  <!-- Svelte's reactive approach - generate sliders based on threshold count -->
+  <div class="threshold-controls">
+    {#if thresholds && thresholds.length > 0}
+      {#each thresholds as threshold, i}
+        <div class="control-group threshold-control">
+          <label for="threshold{i}">Threshold {i+1}:</label>
+          <div class="slider-container">
+            <input 
+              type="range" 
+              id="threshold{i}" 
+              min="1" 
+              max="254" 
+              step="1" 
+              value={threshold}
+              on:input={e => handleThresholdChange(i, e)}
+            />
+            <span class="value-display">{threshold}</span>
+          </div>
+        </div>
+      {/each}
+    {:else}
+      <p class="no-thresholds">Adjust the color count to create thresholds</p>
+    {/if}
+  </div>
 </div>
 
 <style>

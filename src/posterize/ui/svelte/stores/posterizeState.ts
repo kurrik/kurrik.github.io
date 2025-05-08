@@ -21,8 +21,15 @@ import { LocalStorageAdapter } from '../../../infrastructure/adapters/local-stor
  * This replaces the BaseManager functionality while preserving DDD boundaries
  */
 export function createPosterizeStore(stateService: StateManagementService) {
-  // Initialize with default state from the domain service
-  const { subscribe, set, update } = writable<AppState>(stateService.getDefaultState());
+  // First try to load saved state, fall back to default state if none exists
+  const savedState = stateService.loadState();
+  const initialState = savedState || stateService.getDefaultState();
+  
+  // Initialize the store with the loaded or default state
+  const { subscribe, set, update } = writable<AppState>(initialState);
+  
+  // Log for debugging
+  console.log('PosterizeState initialized with:', savedState ? 'saved state from localStorage' : 'default state');
   
   return {
     subscribe,
@@ -93,3 +100,7 @@ export const colorSettings = derived(posterizeSettings, $settings => ({
 export const noiseSettings = derived(posterizeSettings, $settings => $settings.noiseSettings);
 export const smoothSettings = derived(posterizeSettings, $settings => $settings.smoothSettings);
 export const borderSettings = derived(posterizeSettings, $settings => $settings.borderSettings);
+
+// Create derived store for crossHatchingSettings directly from the main state
+// This is needed because crossHatchingSettings is a direct property of AppState, not part of PosterizeSettings
+export const crossHatchingSettings = derived(posterizeState, $state => $state.crossHatchingSettings);

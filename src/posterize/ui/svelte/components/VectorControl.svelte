@@ -7,9 +7,9 @@
    * Replaces the VectorControlManager while maintaining DDD principles.
    * Fixes the layer visibility toggle bug by always using the current vector output from the service.
    */
-  import { onMount, getContext, onDestroy } from 'svelte';
+  import { onMount, getContext, createEventDispatcher } from 'svelte';
   import { get } from 'svelte/store';
-  import { posterizeState, posterizeSettings } from '../stores/posterizeState';
+  import { posterizeState, posterizeSettings, crossHatchingSettings } from '../stores/posterizeState';
   import { StateManagementService } from '../../../application/services/state-management-service';
   import { ImageProcessingService } from '../../../application/services/image-processing-service';
   import { VectorOutputService } from '../../../application/services/vector-output-service';
@@ -49,33 +49,64 @@
   
   // Initialize state on mount
   onMount(() => {
-    // Set the initial strategy from the service
-    try {
-      selectedStrategy = vectorConversionService.getActiveStrategy().strategyType;
-    } catch (error) {
-      console.warn('Could not get active strategy, defaulting to stencil', error);
-      selectedStrategy = StrategyType.STENCIL;
-    }
+    // Subscribe to state changes
+    const unsubscribeState = posterizeState.subscribe(state => {
+      // Update local state based on posterize state
+      if (state) {
+        // If there's a vector output in the state, update our local copy
+        const updatedOutput = vectorService.getVectorOutput();
+        if (updatedOutput) {
+          vectorOutput = updatedOutput;
+          renderVectorPreview();
+        }
+      }
+    });
     
-    // Get initial cross-hatching settings from state
-    const currentState = get(posterizeState);
-    if (currentState && currentState.crossHatchingSettings) {
-      crossHatchingEnabled = currentState.crossHatchingSettings.enabled;
-      crossHatchingDensity = currentState.crossHatchingSettings.density;
-      crossHatchingAngle = currentState.crossHatchingSettings.angle;
+    // Subscribe to settings changes
+    const unsubscribeSettings = posterizeSettings.subscribe(settings => {
+      if (settings) {
+        // Check if we need to update the preview based on settings changes
+        // Access vector settings and cross hatching settings from state
+        const state = get(posterizeState);
+        if (state && state.crossHatchingSettings) {
+          crossHatchingEnabled = state.crossHatchingSettings.enabled;
+          crossHatchingDensity = state.crossHatchingSettings.density;
+          crossHatchingAngle = state.crossHatchingSettings.angle;
+        }
+        
+        // If we have processed image data, update the vector preview automatically
+        const imageData = getCurrentImageData();
+        if (imageData) {
+          // Debounce the preview generation to avoid too many renders
+          if (debounceTimer) {
+            clearTimeout(debounceTimer);
+          }
+          debounceTimer = setTimeout(() => {
+            // Generate and update the vector preview
+            updateVectorPreview();
+          }, debounceDelay) as unknown as number;
+        }
+      }
+    });
+    
+    // Initial setting values from store - use crossHatchingSettings store directly
+    if ($crossHatchingSettings) {
+      crossHatchingEnabled = $crossHatchingSettings.enabled;
+      crossHatchingDensity = $crossHatchingSettings.density;
+      crossHatchingAngle = $crossHatchingSettings.angle;
     }
     
     // Update vector preview
-    updatePreview();
+    updateVectorPreview();
     
     // Set up event listener for state updates
     document.addEventListener('posterize:processImage', handleImageProcessed);
-    document.addEventListener('posterize:stateReset', updatePreview);
+    document.addEventListener('posterize:stateReset', () => updateVectorPreview());
     
     return () => {
       // Clean up event listeners
       document.removeEventListener('posterize:processImage', handleImageProcessed);
-      document.removeEventListener('posterize:stateReset', updatePreview);
+      document.removeEventListener('posterize:stateReset', () => updateVectorPreview());
       
       // Clear debounce timer
       if (debounceTimer) {
@@ -87,7 +118,14 @@
   
   // Handler for image processing events
   function handleImageProcessed() {
-    debouncedUpdatePreview();
+    // Debounce to avoid too many updates when multiple settings change
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    debounceTimer = setTimeout(() => {
+      updateVectorPreview();
+      debounceTimer = null;
+    }, debounceDelay) as unknown as number;
   }
   
   // Update strategy selection
@@ -96,7 +134,8 @@
     selectedStrategy = select.value as StrategyType;
     vectorConversionService.setActiveStrategy(selectedStrategy);
     
-    updatePreview();
+    // Update the vector preview with the new strategy
+    updateVectorPreview();
   }
   
   // Update cross-hatching enabled state
@@ -124,7 +163,7 @@
       stateService.saveState(state);
     }
     
-    debouncedUpdatePreview();
+    updateVectorPreview();
   }
   
   // Update cross-hatching angle
@@ -138,7 +177,7 @@
       stateService.saveState(state);
     }
     
-    debouncedUpdatePreview();
+    updateVectorPreview();
   }
   
   // Show or hide all layers
@@ -152,6 +191,7 @@
   
   // Update a single layer's visibility
   function updateLayerVisibility(layerId: string, visible: boolean) {
+    // Update the service
     // IMPORTANT: Update the layer in the service
     vectorService.updateLayerVisibility(layerId, visible);
     
@@ -169,29 +209,36 @@
     }
     
     debounceTimer = window.setTimeout(() => {
-      updatePreview();
+      updateVectorPreview();
       debounceTimer = null;
     }, debounceDelay);
   }
   
-  // Update the vector preview
-  function updatePreview() {
-    const currentImageData = getCurrentImageData();
-    if (!currentImageData) {
-      console.warn('No image loaded, cannot update preview');
+  // Update the vector preview - always visible, updating automatically when settings change
+  function updateVectorPreview() {
+    console.log('Updating vector preview');
+    
+    // Get current image data
+    const imageData = getCurrentImageData();
+    if (!imageData) {
+      console.warn('No image data available for vector preview');
       return;
     }
     
-    // Check if the image data is valid
-    if (currentImageData.dimensions.width === 0 || currentImageData.dimensions.height === 0) {
-      console.warn('Image data not fully loaded yet, deferring preview');
+    // Get current settings from state
+    const state = get(posterizeState);
+    if (!state) {
+      console.warn('No state available for vector preview');
       return;
     }
+
+    console.log('Processing image for vector output...');
     
+    // Process image and generate vector output automatically
     try {
       // Process the image with current posterize settings
       const processedResult = imageService.processImage(
-        currentImageData,
+        imageData,
         $posterizeSettings
       );
       
@@ -201,14 +248,30 @@
         return;
       }
       
-      // Generate vector from processed result using the active strategy
-      const vectorResult = imageService.generateVector(
-        processedResult,
-        { 
-          type: VectorType.FILLED, 
+      console.log('Image processed successfully, generating vector...');
+      
+      // Set vector settings based on selected strategy
+      let vectorSettings;
+      if (selectedStrategy === StrategyType.PEN_DRAWING) {
+        // Use unfilled paths for pen drawing strategy
+        vectorSettings = {
+          type: VectorType.OUTLINE,
           curveSmoothing: 1,
           exportLayers: true
-        }
+        };
+      } else {
+        // Use filled paths for stencil strategy (default)
+        vectorSettings = {
+          type: VectorType.FILLED,
+          curveSmoothing: 1,
+          exportLayers: true
+        };
+      }
+      
+      // Generate vector from processed result using the selected strategy
+      const vectorResult = imageService.generateVector(
+        processedResult,
+        vectorSettings
       );
       
       // Make sure we have valid vector output
@@ -217,10 +280,13 @@
         return;
       }
       
+      console.log('Vector generated successfully with', vectorResult.vectorOutput.layers.length, 'layers');
+      
       // IMPORTANT: Store the vector output in the service
       vectorService.setVectorOutput(vectorResult.vectorOutput);
       
-      // IMPORTANT: Get the vector output from the service
+      // IMPORTANT: Get the vector output from the service to ensure we have the latest version
+      // This fixes the layer visibility toggle bug mentioned in the memory
       vectorOutput = vectorService.getVectorOutput();
       
       // Render the preview
@@ -232,14 +298,33 @@
   
   // Render the vector preview
   function renderVectorPreview() {
-    if (!vectorOutput || !vectorPreviewElement) return;
+    console.log('Rendering vector preview:', vectorOutput ? 'has output' : 'no output', vectorPreviewElement ? 'has element' : 'no element');
+    
+    if (!vectorOutput || !vectorPreviewElement) {
+      console.warn('Cannot render SVG preview: missing vectorOutput or vectorPreviewElement');
+      // Add debug message to the preview element if it exists
+      if (vectorPreviewElement) {
+        vectorPreviewElement.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No vector data available yet. Upload an image and adjust settings to see SVG preview.</div>';
+      }
+      return;
+    }
     
     // Clear existing content
     vectorPreviewElement.innerHTML = '';
     
+    // Ensure the element has proper styling
+    vectorPreviewElement.style.display = 'flex';
+    vectorPreviewElement.style.justifyContent = 'center';
+    vectorPreviewElement.style.alignItems = 'center';
+    vectorPreviewElement.style.flexDirection = 'column';
+    vectorPreviewElement.style.minHeight = '200px';
+    vectorPreviewElement.style.width = '100%';
+    
     // Create the SVG elements for preview
     const { width, height } = vectorOutput.dimensions;
     const svgNS = 'http://www.w3.org/2000/svg';
+    
+    console.log('Vector dimensions:', width, 'x', height, 'Layers:', vectorOutput.layers.length);
     
     // Create container for layers
     const layersDiv = document.createElement('div');
@@ -359,18 +444,27 @@
       <select 
         id="strategySelector" 
         bind:value={selectedStrategy}
-        on:change={updateStrategy}
+        on:change={() => updateVectorPreview()}
       >
-        <option value={StrategyType.STENCIL}>Stencil (Filled Regions)</option>
-        <option value={StrategyType.PEN_DRAWING}>Pen Drawing (Outlines)</option>
+        <option value={StrategyType.STENCIL}>Stencil (filled areas)</option>
+        <option value={StrategyType.PEN_DRAWING}>Pen Drawing (outlines)</option>
       </select>
     </div>
     
-    <!-- Render area -->
-    <div class="preview-wrapper">
-      <div bind:this={vectorPreviewElement} class="vector-preview"></div>
+    <!-- Strategy description -->
+    <div class="strategy-description">
+      {#if selectedStrategy === StrategyType.STENCIL}
+        <small>Stencil mode creates filled shapes suitable for vinyl cutting or traditional stencils.</small>
+      {:else if selectedStrategy === StrategyType.PEN_DRAWING}
+        <small>Pen Drawing mode creates unfilled paths suitable for pen plotters and drawing machines.</small>
+      {/if}
     </div>
     
+    <!-- Vector preview area -->
+    <div class="preview-wrapper" style="margin: 1rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+      <h3 style="margin-top: 0;">SVG Preview</h3>
+      <div bind:this={vectorPreviewElement} class="vector-preview" style="min-height: 200px; display: flex; justify-content: center; align-items: center;"></div>
+    </div>
     <!-- Layer controls -->
     <div class="layer-controls-container">
       <div class="section-header">

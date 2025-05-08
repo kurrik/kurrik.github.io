@@ -7,7 +7,7 @@
    * Replaces the BorderControlManager while maintaining DDD principles.
    */
   import { onMount, getContext } from 'svelte';
-  import { posterizeSettings, borderSettings } from '../stores/posterizeState';
+  import { posterizeState, posterizeSettings, borderSettings } from '../stores/posterizeState';
   import { StateManagementService } from '../../../application/services/state-management-service';
   
   // Get services from context (injected by parent)
@@ -25,19 +25,22 @@
   function updateBorderEnabled(value: boolean) {
     enabled = value;
     
-    // Update the posterize settings
-    $posterizeSettings = {
-      ...$posterizeSettings,
+    // Get current settings
+    const currentSettings = { ...stateService.getDefaultState().posterizeSettings };
+    
+    // Create updated settings
+    const updatedSettings = {
+      ...currentSettings,
       borderSettings: {
-        ...$posterizeSettings.borderSettings,
+        ...currentSettings.borderSettings,
         enabled: value
       }
     };
     
-    // Save state via service (maintains domain integrity)
-    let state = stateService.getDefaultState();
-    state.posterizeSettings = $posterizeSettings;
-    stateService.saveState(state);
+    // Update state using the store API instead of direct assignment
+    posterizeState.updatePartialState({
+      posterizeSettings: updatedSettings
+    });
     
     // Trigger image processing
     const processImageEvent = new CustomEvent('posterize:processImage');
@@ -48,19 +51,22 @@
   function updateBorderThickness(value: number) {
     thickness = value;
     
-    // Update the posterize settings
-    $posterizeSettings = {
-      ...$posterizeSettings,
+    // Get current settings
+    const currentSettings = { ...stateService.getDefaultState().posterizeSettings };
+    
+    // Create updated settings
+    const updatedSettings = {
+      ...currentSettings,
       borderSettings: {
-        ...$posterizeSettings.borderSettings,
+        ...currentSettings.borderSettings,
         thickness: value
       }
     };
     
-    // Save state via service
-    let state = stateService.getDefaultState();
-    state.posterizeSettings = $posterizeSettings;
-    stateService.saveState(state);
+    // Update state using the store API instead of direct assignment
+    posterizeState.updatePartialState({
+      posterizeSettings: updatedSettings
+    });
     
     // Always trigger reprocessing when thickness changes
     const processImageEvent = new CustomEvent('posterize:processImage');
