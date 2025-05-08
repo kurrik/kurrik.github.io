@@ -34,16 +34,21 @@
   // Create default service instances
   import { LocalStorageAdapter } from "../../../infrastructure/adapters/local-storage-adapter";
   const defaultLocalStorageAdapter = new LocalStorageAdapter();
-  const defaultStateService = new StateManagementService(defaultLocalStorageAdapter);
+  const defaultStateService = new StateManagementService(
+    defaultLocalStorageAdapter,
+  );
   const defaultImageService = new ImageProcessingService();
   const defaultVectorService = new VectorOutputService();
   const defaultConversionService = new VectorConversionService();
 
   // These services can be passed in as props or use defaults
-  export let stateManagementService: StateManagementService = defaultStateService;
-  export let imageProcessingService: ImageProcessingService = defaultImageService;
+  export let stateManagementService: StateManagementService =
+    defaultStateService;
+  export let imageProcessingService: ImageProcessingService =
+    defaultImageService;
   export let vectorOutputService: VectorOutputService = defaultVectorService;
-  export let vectorConversionService: VectorConversionService = defaultConversionService;
+  export let vectorConversionService: VectorConversionService =
+    defaultConversionService;
 
   // State to track initialization
   let appInitialized = false;
@@ -123,25 +128,28 @@
     if (dropzone && canvas) {
       dropzone.style.display = "none";
       canvas.style.display = "block";
-      
+
       // Ensure the canvas is visible in the center of the app
       canvas.style.margin = "1rem auto";
       canvas.style.display = "block";
       canvas.style.maxWidth = "100%";
       canvas.style.border = "1px solid #ccc";
       canvas.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
-      
+
       // Draw the image on the canvas right away for immediate feedback
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext("2d");
       if (ctx && imageData) {
         // Set canvas dimensions to match image
         canvas.width = imageData.dimensions.width;
         canvas.height = imageData.dimensions.height;
-        
+
         // Create ImageData object from our pixel data
-        const canvasImageData = ctx.createImageData(imageData.dimensions.width, imageData.dimensions.height);
+        const canvasImageData = ctx.createImageData(
+          imageData.dimensions.width,
+          imageData.dimensions.height,
+        );
         canvasImageData.data.set(imageData.pixels);
-        
+
         // Draw image data to canvas
         ctx.putImageData(canvasImageData, 0, 0);
       }
@@ -153,30 +161,37 @@
       detail: { imageData },
     });
     document.dispatchEvent(processImageEvent);
-    
+
     // Ensure we show a processed preview right away
     // This gives immediate feedback while other operations occur
     try {
       // Process image with current settings to show a preview
       const state = stateManagementService.getDefaultState();
       if (state) {
-        const processedResult = imageProcessingService.processImage(imageData, state.posterizeSettings);
+        const processedResult = imageProcessingService.processImage(
+          imageData,
+          state.posterizeSettings,
+        );
         if (processedResult && processedResult.processedImageData) {
           // Get the canvas and draw the processed image
           const canvas = document.getElementById("canvas") as HTMLCanvasElement;
           if (canvas) {
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext("2d");
             if (ctx) {
               // Ensure canvas dimensions match image
-              canvas.width = processedResult.processedImageData.dimensions.width;
-              canvas.height = processedResult.processedImageData.dimensions.height;
-              
+              canvas.width =
+                processedResult.processedImageData.dimensions.width;
+              canvas.height =
+                processedResult.processedImageData.dimensions.height;
+
               // Create ImageData and draw it
               const canvasImageData = ctx.createImageData(
                 processedResult.processedImageData.dimensions.width,
-                processedResult.processedImageData.dimensions.height
+                processedResult.processedImageData.dimensions.height,
               );
-              canvasImageData.data.set(processedResult.processedImageData.pixels);
+              canvasImageData.data.set(
+                processedResult.processedImageData.pixels,
+              );
               ctx.putImageData(canvasImageData, 0, 0);
             }
           }
@@ -188,8 +203,8 @@
   }
 
   // Tab state management
-  let activeTab = 'colors';
-  
+  let activeTab = "colors";
+
   // Function to switch tabs
   function setActiveTab(tabName: string) {
     activeTab = tabName;
@@ -233,19 +248,24 @@
       // Cast to CustomEvent to access detail property
       const customEvent = event as CustomEvent;
       console.log("State reset detected, updating UI...");
-      
+
       // Check if image was cleared
-      const detail = customEvent.detail as { clearedImage?: boolean } | undefined;
+      const detail = customEvent.detail as
+        | { clearedImage?: boolean }
+        | undefined;
       if (detail?.clearedImage) {
         console.log("Image was cleared, resetting ImageLoader component...");
-        
+
         // If we have a reference to the ImageLoader component, reset it
-        if (imageLoaderComponent && typeof imageLoaderComponent.resetImage === 'function') {
+        if (
+          imageLoaderComponent &&
+          typeof imageLoaderComponent.resetImage === "function"
+        ) {
           imageLoaderComponent.resetImage();
         }
-        
+
         // Also trigger reprocessing of the empty state
-        const processImageEvent = new CustomEvent('posterize:processImage');
+        const processImageEvent = new CustomEvent("posterize:processImage");
         document.dispatchEvent(processImageEvent);
       }
     };
@@ -268,47 +288,60 @@
         <div class="main-column">
           <div class="control-panel">
             <h2>Image</h2>
-            <!-- @ts-ignore: Svelte component typing during migration -->
             <ImageLoader
               bind:this={imageLoaderComponent}
               on:imageLoaded={handleImageLoaded}
             />
           </div>
-          
+
           <div class="control-panel consolidated-panel">
             <h2>Image Processing</h2>
             <div class="tabs">
               <div class="tab-header">
-                <button class="tab-button {activeTab === 'colors' ? 'active' : ''}" on:click={() => setActiveTab('colors')}>Colors</button>
-                <button class="tab-button {activeTab === 'noise' ? 'active' : ''}" on:click={() => setActiveTab('noise')}>Noise</button>
-                <button class="tab-button {activeTab === 'smoothing' ? 'active' : ''}" on:click={() => setActiveTab('smoothing')}>Smoothing</button>
-                <button class="tab-button {activeTab === 'borders' ? 'active' : ''}" on:click={() => setActiveTab('borders')}>Borders</button>
+                <button
+                  class="tab-button {activeTab === 'colors' ? 'active' : ''}"
+                  on:click={() => setActiveTab("colors")}>Colors</button
+                >
+                <button
+                  class="tab-button {activeTab === 'noise' ? 'active' : ''}"
+                  on:click={() => setActiveTab("noise")}>Noise</button
+                >
+                <button
+                  class="tab-button {activeTab === 'smoothing' ? 'active' : ''}"
+                  on:click={() => setActiveTab("smoothing")}>Smoothing</button
+                >
+                <button
+                  class="tab-button {activeTab === 'borders' ? 'active' : ''}"
+                  on:click={() => setActiveTab("borders")}>Borders</button
+                >
               </div>
               <div class="tab-content">
                 <div class="tab-pane {activeTab === 'colors' ? 'active' : ''}">
-                  <!-- @ts-ignore: Svelte component typing during migration -->
                   <ColorControl />
                 </div>
                 <div class="tab-pane {activeTab === 'noise' ? 'active' : ''}">
-                  <!-- @ts-ignore: Svelte component typing during migration -->
                   <NoiseControl />
                 </div>
-                <div class="tab-pane {activeTab === 'smoothing' ? 'active' : ''}">
-                  <!-- @ts-ignore: Svelte component typing during migration -->
+                <div
+                  class="tab-pane {activeTab === 'smoothing' ? 'active' : ''}"
+                >
                   <SmoothingControl />
                 </div>
                 <div class="tab-pane {activeTab === 'borders' ? 'active' : ''}">
-                  <!-- @ts-ignore: Svelte component typing during migration -->
                   <BorderControl />
                 </div>
               </div>
             </div>
           </div>
-          
+
           <div class="control-panel">
             <h2>Vector</h2>
-            <!-- @ts-ignore: Svelte component typing during migration -->
             <VectorControl />
+          </div>
+
+          <div class="control-panel">
+            <h2>Export</h2>
+            <ExportControl />
           </div>
         </div>
 
@@ -316,15 +349,11 @@
         <div class="sidebar-column">
           <div class="control-panel">
             <h2>Dimensions</h2>
-            <!-- @ts-ignore: Svelte component typing during migration -->
             <CropControl />
           </div>
-          
+
           <div class="control-panel">
-            <h2>Export</h2>
-            <!-- @ts-ignore: Svelte component typing during migration -->
-            <ExportControl />
-            <!-- @ts-ignore: Svelte component typing during migration -->
+            <h2>Commands</h2>
             <ResetControl />
           </div>
         </div>
@@ -393,13 +422,13 @@
   .tabs {
     width: 100%;
   }
-  
+
   .tab-header {
     display: flex;
     border-bottom: 1px solid #ddd;
     margin-bottom: 1rem;
   }
-  
+
   .tab-button {
     padding: 0.5rem 1rem;
     border: none;
@@ -410,28 +439,28 @@
     font-weight: 500;
     transition: all 0.2s ease;
   }
-  
+
   .tab-button:hover {
     color: #333;
   }
-  
+
   .tab-button.active {
     color: #2c3e50;
     border-bottom: 2px solid #42b983;
   }
-  
+
   .tab-content {
     padding: 0.5rem 0;
   }
-  
+
   .tab-pane {
     display: none;
   }
-  
+
   .tab-pane.active {
     display: block;
   }
-  
+
   .consolidated-panel {
     background-color: #fff;
     border: 1px solid #eee;
