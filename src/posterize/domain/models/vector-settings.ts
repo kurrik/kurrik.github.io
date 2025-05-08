@@ -3,7 +3,8 @@
  */
 import { 
   VectorSettings, 
-  VectorType, 
+  VectorType,
+  StrategyType,
   CrossHatchingSettings 
 } from '../../types/interfaces';
 
@@ -12,16 +13,19 @@ export class VectorSettingsModel implements VectorSettings {
   curveSmoothing: number;
   exportLayers: boolean;
   crossHatchingSettings: CrossHatchingSettings;
+  strategy: StrategyType;
 
   constructor(
     type: VectorType = VectorType.FILLED,
     curveSmoothing: number = 3,
     exportLayers: boolean = true,
-    crossHatchingSettings?: Partial<CrossHatchingSettings>
+    crossHatchingSettings?: Partial<CrossHatchingSettings>,
+    strategy: StrategyType = StrategyType.STENCIL
   ) {
     this.type = type;
     this.curveSmoothing = curveSmoothing;
     this.exportLayers = exportLayers;
+    this.strategy = strategy;
     
     // Initialize cross-hatching settings for pen plotter output
     this.crossHatchingSettings = {
@@ -94,19 +98,21 @@ export class VectorSettingsModel implements VectorSettings {
       this.type,
       this.curveSmoothing,
       this.exportLayers,
-      { ...this.crossHatchingSettings }
+      { ...this.crossHatchingSettings },
+      this.strategy
     );
   }
 
   /**
-   * Create settings object from a plain object (e.g., from JSON)
+   * Create a VectorSettingsModel from a partial object (for loading saved state)
    */
-  static fromObject(obj: Partial<VectorSettings & { crossHatchingSettings?: Partial<CrossHatchingSettings> }>): VectorSettingsModel {
+  static fromObject(obj: Partial<VectorSettings> = {}): VectorSettingsModel {
     return new VectorSettingsModel(
-      obj.type !== undefined ? obj.type : VectorType.FILLED,
-      obj.curveSmoothing,
-      obj.exportLayers,
-      obj.crossHatchingSettings
+      obj.type || VectorType.FILLED,
+      obj.curveSmoothing || 3,
+      obj.exportLayers !== undefined ? obj.exportLayers : true,
+      obj.crossHatchingSettings,
+      obj.strategy || StrategyType.STENCIL
     );
   }
 }

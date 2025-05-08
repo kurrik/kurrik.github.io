@@ -37,6 +37,8 @@
   // Local state
   let vectorOutput: VectorOutput | null = null;
   let selectedStrategy = StrategyType.STENCIL;
+  // Debug variable to help track strategy selection visually
+  let selectedStrategyDebug = 'Initial default: ' + selectedStrategy;
   let crossHatchingEnabled = false;
   let crossHatchingDensity = 5;
   let crossHatchingAngle = 45;
@@ -51,11 +53,15 @@
   onMount(() => {
     // Load saved strategy from state
     const state = get(posterizeState);
-    if (state && state.vectorSettings && state.vectorSettings.strategy) {
-      selectedStrategy = state.vectorSettings.strategy;
-      // Update service with the loaded strategy
-      vectorConversionService.setActiveStrategy(selectedStrategy);
-      console.log('Loaded strategy from state:', selectedStrategy);
+    if (state && state.vectorSettings) {
+      // Use strategy from vectorSettings if available
+      if (state.vectorSettings.strategy) {
+        selectedStrategy = state.vectorSettings.strategy;
+        selectedStrategyDebug = 'Loaded from state: ' + selectedStrategy;
+        // Update service with the loaded strategy
+        vectorConversionService.setActiveStrategy(selectedStrategy);
+        console.log('Loaded strategy from state:', selectedStrategy, typeof selectedStrategy);
+      }
     }
     // Subscribe to state changes
     const unsubscribeState = posterizeState.subscribe(state => {
@@ -321,9 +327,12 @@
         type: selectedStrategy === StrategyType.PEN_DRAWING ? VectorType.OUTLINE : VectorType.FILLED,
         curveSmoothing: existingSettings.curveSmoothing || 1,
         exportLayers: true,
-        // Save the current strategy
+        // CRITICAL: Always ensure the current strategy is saved
         strategy: selectedStrategy
       };
+      
+      // Debug log to verify strategy is being properly saved
+      console.log('Saving vector settings with strategy:', vectorSettings.strategy);
       
       // Save these settings back to state
       const updatedState = {...state};
@@ -513,7 +522,7 @@
       <select 
         id="strategySelector" 
         bind:value={selectedStrategy}
-        on:change={() => updateVectorPreview()}
+        on:change={(e) => updateStrategy(e)}
       >
         <option value={StrategyType.STENCIL}>Stencil (filled areas)</option>
         <option value={StrategyType.PEN_DRAWING}>Pen Drawing (outlines)</option>
