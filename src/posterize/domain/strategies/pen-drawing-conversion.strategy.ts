@@ -102,8 +102,8 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
         const method = 2; // CV_CHAIN_APPROX_SIMPLE = 2
         cv.findContours(mask, contours, hierarchy, mode, method);
         
-        const paths: VectorPathData[] = [];
-        const pathDataStrings: string[] = [];
+        // Store path data for processing later, without adding placeholder paths to the output
+        const contourPathData: string[] = [];
         
         // Process each contour
         for (let i = 0; i < contours.size(); i++) {
@@ -119,39 +119,29 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
           // Convert contour to path data
           const pathData = this.contourToPath(contour);
           
-          // Store path data for cross-hatching, regardless of outline visibility
-          pathDataStrings.push(pathData);
-          
-          // The pen strategy now only creates path data for the outline and cross-hatching services to use
-          // We don't add outlines directly anymore - the outline service will handle this
-          
-          // Add a minimal path for outline/cross-hatching services to use
-          // This path won't be visible but provides the geometry for the services
-          paths.push({
-            d: pathData,
-            fill: 'none',             // No fill for pen drawing
-            stroke: '#000000',        // Black stroke
-            strokeWidth: '0.1'        // Minimal stroke width - will be replaced by services
-          });
-          // We no longer need to add invisible paths because we've updated
-          // the cross-hatching service to handle outlines and cross-hatching independently
+          // Store the path data for later processing by services
+          // Don't add any paths to the output at this stage
+          contourPathData.push(pathData);
           
           contour.delete();
         }
         
-        // Log the number of paths added to the layer
-        console.log(`PEN STRATEGY: Bucket ${bucket}: ${paths.length} visible paths, ${pathDataStrings.length} total paths`);
+        // Log the number of paths in this bucket
+        console.log(`PEN STRATEGY: Bucket ${bucket}: ${contourPathData.length} paths`);
         
-        // Always add a layer for this bucket, even if it has no paths
-        // This ensures the SVG updates even when outlines are disabled
+        // Store the path data for this bucket - initially with empty paths
+        // The actual paths will be added by the outline and cross-hatching services
         layers.push({
           id: `pen-layer-${bucket}`,
-          paths,
-          visible: true
-        });
+          paths: [], // Start with empty paths - services will add them
+          visible: true,
+          // Store bucket data as custom property for the services to use
+          bucket: bucket,
+          pathData: contourPathData // Store the path data for services to use
+        } as VectorLayer & { bucket: number, pathData: string[] }); // Use type assertion
         
         // Log the layer that's being added
-        console.log(`PEN STRATEGY: Adding layer for bucket ${bucket} with ${paths.length} paths`);
+        console.log(`PEN STRATEGY: Adding layer for bucket ${bucket} with ${contourPathData.length} path data entries`);
         
         // Clean up OpenCV resources
         mask.delete();

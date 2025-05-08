@@ -4,20 +4,19 @@
  * suitable for pen plotter drawing with varying density/angle
  * to simulate different tones.
  */
-import {
-  ICrossHatchingService,
-  VectorOutput,
-  VectorLayer,
-  VectorPathData,
-  CrossHatchingSettings
-} from '../../types/interfaces';
+import { CrossHatchingSettings, VectorOutput, VectorLayer, VectorPathData, ICrossHatchingService } from '../../types/interfaces';
 
+// Type definition for extended VectorLayer with pathData
+type VectorLayerWithPathData = VectorLayer & { pathData?: string[] };
+
+/**
+ * Service for applying cross-hatching to vector outputs
+ */
 export class CrossHatchingService implements ICrossHatchingService {
   /**
    * Apply cross-hatching to a vector output
-   * Transforms filled regions into line patterns with varying density
    */
-  applyToVectorOutput(
+  public applyToVectorOutput(
     vectorOutput: VectorOutput,
     settings: CrossHatchingSettings
   ): VectorOutput {
@@ -59,34 +58,49 @@ export class CrossHatchingService implements ICrossHatchingService {
       // In a real implementation, we would analyze the fill color
       const toneLevel = 1 - (layerIndex / (vectorOutput.layers.length - 1 || 1));
       
-      // Keep existing paths (like outlines) and add cross-hatching
-      const combinedPaths: VectorPathData[] = [...layer.paths]; // Start with existing paths
+        // Cast to our extended type to access pathData
+      const layerWithPathData = layer as VectorLayerWithPathData;
       
-      // Process each path in the layer for cross-hatching
-      layer.paths.forEach(path => {
-        // Only add cross-hatching patterns if enabled
-        if (validatedSettings.enabled) {
+      // Start with existing paths (like outlines added by the outline service)
+      const crossHatchedPaths: VectorPathData[] = [...layer.paths];
+      
+      // Only add cross-hatching if enabled and we have path data
+      if (validatedSettings.enabled && layerWithPathData.pathData && layerWithPathData.pathData.length > 0) {
+        console.log(`CROSS-HATCHING: Processing ${layerWithPathData.pathData.length} path data entries for cross-hatching`);
+        
+        // Process each stored path data string for cross-hatching
+        layerWithPathData.pathData.forEach(pathData => {
+          // Create a dummy path with this path data for the cross-hatching function
+          const dummyPath = {
+            d: pathData,
+            fill: 'none',
+            stroke: '#000000',
+            strokeWidth: '1'
+          };
+          
           // Generate cross-hatching patterns for this path
-          console.log('CROSS-HATCHING DEBUG: Adding cross-hatching patterns');
+          console.log('CROSS-HATCHING: Adding cross-hatching patterns');
           const hatchingPatterns = this.generateCrossHatchingForPath(
-            path,
+            dummyPath,
             toneLevel,
-            validatedSettings,  // Use validated settings
+            validatedSettings,
             width,
             height
           );
           
-          // Add the cross-hatching patterns to our combined paths
-          combinedPaths.push(...hatchingPatterns);
-        }
-      });
+          // Add only the cross-hatching patterns
+          crossHatchedPaths.push(...hatchingPatterns);
+        });
+      }
       
-      // Add the layer with both existing paths and cross-hatching
+      // Add the layer with cross-hatching (and any existing paths)
       crossHatchedLayers.push({
         id: layer.id,
-        paths: combinedPaths, // Both original paths and cross-hatching
-        visible: true
-      });
+        paths: crossHatchedPaths,
+        visible: true,
+        // Preserve the path data for other services to use
+        ...(layerWithPathData.pathData ? { pathData: layerWithPathData.pathData } : {})
+      } as VectorLayerWithPathData);
     });
     
     return {
