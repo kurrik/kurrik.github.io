@@ -3,6 +3,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
   root: '.',
+  base: '/posterize',
   build: {
     outDir: resolve(__dirname, '../../dist/posterize'),
     emptyOutDir: true,
