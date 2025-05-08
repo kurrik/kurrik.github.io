@@ -210,42 +210,84 @@
   
   // Update cross-hatching enabled state
   function updateCrossHatchingEnabled(value: boolean) {
+    // Update the local component variable first
     crossHatchingEnabled = value;
     
-    // Update the state service
-    const state = stateService.getDefaultState();
-    if (state.crossHatchingSettings) {
+    console.log('Updating cross-hatching enabled to:', value);
+    
+    // Update the state service using current state from store
+    const state = get(posterizeState) || stateService.getDefaultState();
+    if (!state.crossHatchingSettings) {
+      state.crossHatchingSettings = {
+        enabled: value,
+        density: crossHatchingDensity,
+        angle: crossHatchingAngle,
+        lineWidth: penWidth,
+        outlineRegions: outlineRegions
+      };
+    } else {
       state.crossHatchingSettings.enabled = value;
-      stateService.saveState(state);
     }
     
+    // Save state and trigger UI update
+    stateService.saveState(state);
+    
     debouncedUpdatePreview();
+    
+    // Debug the current state after update
+    console.log('Current state after cross-hatching enabled update:', get(posterizeState));
   }
   
   // Update cross-hatching density
   function updateCrossHatchingDensity(value: number) {
+    // Update local component variable first
     crossHatchingDensity = value;
     
-    // Update the state service
-    const state = stateService.getDefaultState();
-    if (state.crossHatchingSettings) {
+    console.log('Updating cross-hatching density to:', value);
+    
+    // Update the state service using current state from store
+    const state = get(posterizeState) || stateService.getDefaultState();
+    if (!state.crossHatchingSettings) {
+      state.crossHatchingSettings = {
+        enabled: crossHatchingEnabled,
+        density: value,
+        angle: crossHatchingAngle,
+        lineWidth: penWidth,
+        outlineRegions: outlineRegions
+      };
+    } else {
       state.crossHatchingSettings.density = value;
-      stateService.saveState(state);
     }
+    
+    // Save state and trigger UI update
+    stateService.saveState(state);
     
     updateVectorPreview();
   }
   
   // Update cross-hatching angle
   function updateCrossHatchingAngle(value: number) {
+    // Update local component variable first
     crossHatchingAngle = value;
     
-    // Update the state service
-    const state = stateService.getDefaultState();
-    if (state.crossHatchingSettings) {
+    console.log('Updating cross-hatching angle to:', value);
+    
+    // Update the state service using current state from store
+    const state = get(posterizeState) || stateService.getDefaultState();
+    if (!state.crossHatchingSettings) {
+      state.crossHatchingSettings = {
+        enabled: crossHatchingEnabled,
+        density: crossHatchingDensity,
+        angle: value,
+        lineWidth: penWidth,
+        outlineRegions: outlineRegions
+      };
+    } else {
       state.crossHatchingSettings.angle = value;
-      stateService.saveState(state);
     }
+    
+    // Save state and trigger UI update
+    stateService.saveState(state);
     
     updateVectorPreview();
   }
