@@ -51,8 +51,8 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
     }
     
     try {
-      // Process each color bucket (skip bucket 0, which is usually white/background)
-      for (let bucket = 1; bucket < colorCount; bucket++) {
+      // Process all color buckets (including bucket 0, which could be black or darkest color)
+      for (let bucket = 0; bucket < colorCount; bucket++) {
         // Create a binary mask for this bucket
         const mask = cv.Mat.zeros(height, width, cv.CV_8UC1);
         
@@ -69,8 +69,8 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
         // Find contours in the mask
         const contours = new cv.MatVector();
         const hierarchy = new cv.Mat();
-        // Use constants for mode and method to avoid TypeScript errors
-        const mode = 0; // CV_RETR_EXTERNAL = 0
+        // Use RETR_TREE to get all contours including holes
+        const mode = 3; // CV_RETR_TREE = 3 (get all contours with hierarchy)
         const method = 2; // CV_CHAIN_APPROX_SIMPLE = 2
         cv.findContours(mask, contours, hierarchy, mode, method);
         
