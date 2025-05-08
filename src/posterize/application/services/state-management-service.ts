@@ -22,22 +22,6 @@ export class StateManagementService implements IStateManagementService {
    */
   saveState(state: AppState): void {
     try {
-      // Check if there's a reset lock in localStorage
-      const resetLock = localStorage.getItem('posterizeResetLock');
-      if (resetLock) {
-        const lockTime = parseInt(resetLock, 10);
-        const now = Date.now();
-        
-        // If the reset happened less than 5 seconds ago, don't save
-        if (now - lockTime < 5000) {
-          console.log('Reset lock active, skipping state save');
-          return;
-        } else {
-          // Lock expired, remove it
-          localStorage.removeItem('posterizeResetLock');
-        }
-      }
-      
       this.storageAdapter.save(this.STORAGE_KEY, state);
     } catch (error) {
       console.error('Failed to save application state:', error);
@@ -103,5 +87,34 @@ export class StateManagementService implements IStateManagementService {
         lineWidth: 0.5
       }
     };
+  }
+  
+  /**
+   * Reset application state to defaults and clear storage
+   * This is the proper way to reset the application following DDD principles
+   */
+  resetState(): AppState {
+    try {
+      // Get default state
+      const defaultState = this.getDefaultState();
+      
+      // Clear storage by removing the entry completely
+      this.storageAdapter.remove(this.STORAGE_KEY);
+      
+      // Dispatch an application-wide event that a reset has occurred
+      // This allows all components to clean up their internal state
+      const resetEvent = new CustomEvent('posterize:stateReset', {
+        detail: { isFullReset: true, timestamp: Date.now() }
+      });
+      document.dispatchEvent(resetEvent);
+      
+      console.log('Application state reset to defaults and storage cleared');
+      
+      // Return the default state for immediate use
+      return defaultState;
+    } catch (error) {
+      console.error('Failed to reset application state:', error);
+      return this.getDefaultState();
+    }
   }
 }

@@ -171,6 +171,8 @@ export interface IImageProcessingService {
 export interface IStateManagementService {
   saveState(state: AppState): void;
   loadState(): AppState | null;
+  getDefaultState(): AppState;
+  resetState(): AppState;
 }
 
 export interface IExportService {

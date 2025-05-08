@@ -31,7 +31,7 @@ export class LocalStorageAdapter implements ILocalStorageAdapter {
       return null;
     }
   }
-
+  
   /**
    * Remove data from local storage
    */

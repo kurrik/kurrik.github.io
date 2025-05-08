@@ -13,8 +13,9 @@ export class VectorOutputService {
   
   /**
    * Set the current vector output and notify listeners
+   * @param vectorOutput The vector output to set, or null to clear the output
    */
-  setVectorOutput(vectorOutput: VectorOutput): void {
+  setVectorOutput(vectorOutput: VectorOutput | null): void {
     this.currentVectorOutput = vectorOutput;
     this.notifyListeners();
   }
@@ -28,23 +29,42 @@ export class VectorOutputService {
   
   /**
    * Register a listener for vector output changes
+   * @param listener A function that handles vector output updates, including null when cleared
    */
-  onVectorOutputChange(listener: (vectorOutput: VectorOutput) => void): void {
+  onVectorOutputChange(listener: (vectorOutput: VectorOutput | null) => void): void {
     this.listeners.push(listener);
     
-    // If there's already vector output available, notify the new listener immediately
-    if (this.currentVectorOutput) {
-      listener(this.currentVectorOutput);
-    }
+    // Always notify the new listener of the current state, even if null
+    // This ensures components have the correct initial state
+    listener(this.currentVectorOutput);
   }
   
   /**
    * Notify all registered listeners of vector output changes
+   * This method now handles both set and clear (null) operations
    */
   private notifyListeners(): void {
-    if (this.currentVectorOutput) {
-      this.listeners.forEach(listener => listener(this.currentVectorOutput!));
-    }
+    // Always notify listeners of the current state, even if null
+    // This ensures components can properly handle reset events
+    this.listeners.forEach(listener => {
+      try {
+        // We need to handle null case specially
+        if (this.currentVectorOutput === null) {
+          // For TypeScript compatibility, we need to cast the listener
+          (listener as (output: VectorOutput | null) => void)(null);
+        } else {
+          listener(this.currentVectorOutput);
+        }
+      } catch (error) {
+        console.error('Error notifying vector output listener:', error);
+      }
+    });
+    
+    // Also dispatch a custom event for backward compatibility
+    const event = new CustomEvent('vectorOutput:changed', { 
+      detail: this.currentVectorOutput 
+    });
+    document.dispatchEvent(event);
   }
   
   /**

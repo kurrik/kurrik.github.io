@@ -17,61 +17,37 @@
   const services = getContext<Services>('services');
   const { stateService } = services;
 
-  // Function to completely reset the application
+  /**
+   * Reset application to defaults and clear the image
+   * Uses the proper domain service method instead of direct DOM manipulation
+   */
   function resetAllSettings() {
     if (confirm('Are you sure you want to reset all settings, clear the current image, and clear all saved settings? This cannot be undone.')) {
-      // Force a full page reload with a special URL parameter to indicate reset
-      window.location.href = window.location.pathname + '?reset=' + Date.now();
+      console.log('Resetting application to default state...');
+      
+      // Use the store's resetState method which calls the domain service
+      // This follows our DDD principles and keeps reset logic in the domain layer
+      posterizeState.resetState();
+      
+      // The domain service will dispatch events that other components can listen to
+      // We don't need to manually clear DOM elements or localStorage anymore
+      
+      console.log('Reset complete - all settings reset and state cleared');
     }
   }
   
-  // Initialize the reset handler on mount
+  // Listen for reset events to clear any local state in this component
   onMount(() => {
-    // Check if we're loading after a reset
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('reset')) {
-      console.log('Detected reset parameter, clearing storage...');
-      
-      // Clear localStorage completely for the app
-      const STORAGE_KEY = 'posterizeAppState';
-      localStorage.removeItem(STORAGE_KEY);
-      
-      // Set a reset lock to prevent auto-saving for 5 seconds
-      localStorage.setItem('posterizeResetLock', Date.now().toString());
-      
-      // Remove the reset parameter from the URL without a page reload
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, newUrl);
-      
-      // Clear any canvas elements
-      const canvasElements = document.querySelectorAll('canvas');
-      canvasElements.forEach(canvas => {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-      });
-      
-      // Show the dropzone
-      const dropzone = document.querySelector('.dropzone');
-      if (dropzone) {
-        dropzone.classList.remove('hidden');
-      }
-      
-      // Hide vector previews
-      const vectorPreview = document.querySelector('.vector-preview');
-      if (vectorPreview && vectorPreview instanceof HTMLElement) {
-        vectorPreview.innerHTML = '';
-      }
-      
-      // Notify the app that state has been reset
-      const stateResetEvent = new CustomEvent('posterize:stateReset', {
-        detail: { clearedImage: true, clearedStorage: true }
-      });
-      document.dispatchEvent(stateResetEvent);
-      
-      console.log('Reset complete - all settings reset, image cleared, and localStorage cleared');
-    }
+    const handleReset = (event: Event) => {
+      // Handle any component-specific reset actions here if needed
+      console.log('ResetControl received reset event');
+    };
+    
+    document.addEventListener('posterize:stateReset', handleReset);
+    
+    return () => {
+      document.removeEventListener('posterize:stateReset', handleReset);
+    };
   });
 </script>
 

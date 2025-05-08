@@ -101,12 +101,35 @@
     
     // Set up event listener for state updates
     document.addEventListener('posterize:processImage', handleImageProcessed);
-    document.addEventListener('posterize:stateReset', () => updateVectorPreview());
+    
+    // Set up proper handler for state reset events
+    const handleStateReset = (event: Event) => {
+      console.log('VectorControl: Handling state reset event');
+      
+      // Clear the vector output
+      vectorOutput = null;
+      
+      // Clear the vector service state
+      vectorService.setVectorOutput(null);
+      
+      // Clear the SVG preview element
+      if (vectorPreviewElement) {
+        vectorPreviewElement.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No vector data available yet. Upload an image and adjust settings to see SVG preview.</div>';
+      }
+      
+      // Clear the layer list
+      if (layerListElement) {
+        layerListElement.innerHTML = '';
+      }
+    };
+    
+    // Add the event listener with the proper handler function
+    document.addEventListener('posterize:stateReset', handleStateReset);
     
     return () => {
-      // Clean up event listeners
+      // Clean up event listeners with the same function references
       document.removeEventListener('posterize:processImage', handleImageProcessed);
-      document.removeEventListener('posterize:stateReset', () => updateVectorPreview());
+      document.removeEventListener('posterize:stateReset', handleStateReset);
       
       // Clear debounce timer
       if (debounceTimer) {

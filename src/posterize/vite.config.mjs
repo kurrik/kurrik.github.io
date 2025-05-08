@@ -31,7 +31,6 @@ export default defineConfig({
   server: {
     // Configure dev server
     port: 3000,
-    open: '/posterize/',
     fs: {
       // Allow serving files from one level up from the package root
       allow: ['..', '../..']

@@ -68,19 +68,23 @@ export function createPosterizeStore(stateService: StateManagementService) {
     getState: () => get(posterizeState),
     
     /**
-     * Reset to default state
+     * Reset application state to defaults and clear storage
+     * Uses the domain service's proper reset method
      */
     resetState: () => {
-      const defaultState = stateService.getDefaultState();
+      // Use the domain service's reset method which follows DDD principles
+      const defaultState = stateService.resetState();
+      
+      // Update the store with the default state
       set(defaultState);
-      stateService.saveState(defaultState);
       
-      // Dispatch custom event for backwards compatibility
-      const event = new CustomEvent('posterize:stateUpdated', { detail: defaultState });
-      document.dispatchEvent(event);
+      // No need to call saveState as the resetState method already handles storage
+      console.log('Application state reset through proper domain service');
       
-      // Dispatch reset event for components that need to perform special actions
-      const resetEvent = new CustomEvent('posterize:stateReset');
+      // Dispatch event is still needed for backward compatibility with event listeners
+      const resetEvent = new CustomEvent('posterize:stateReset', {
+        detail: { isExplicitReset: true }
+      });
       document.dispatchEvent(resetEvent);
     }
   };

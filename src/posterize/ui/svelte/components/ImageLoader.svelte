@@ -321,8 +321,17 @@
     const handleProcessImage = () => processImage();
     document.addEventListener('posterize:processImage', handleProcessImage);
     
+    // Add listener for state reset events from domain service
+    const handleStateReset = (event: Event) => {
+      console.log('ImageLoader: Handling state reset event');
+      // Call our reset method to ensure the UI is properly updated
+      resetImage();
+    };
+    document.addEventListener('posterize:stateReset', handleStateReset);
+    
     return () => {
       document.removeEventListener('posterize:processImage', handleProcessImage);
+      document.removeEventListener('posterize:stateReset', handleStateReset);
     };
   });
 </script>
