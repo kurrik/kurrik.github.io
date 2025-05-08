@@ -9,7 +9,8 @@
     "dev:posterize": "npm --workspace src/posterize run dev",
     "dev:public": "cpx \"public/**/*.{html,css,png,jpg,svg,ico,txt}\" dist --watch",
     "dev:serve": "serve dist -l 3000",
-    "dev": "npm run build:posterize && concurrently \"npm:dev:public\" \"npm:dev:serve\""
+    "dev": "npm run dev:posterize",
+    "dev:legacy": "npm run build:posterize && concurrently \"npm:dev:public\" \"npm:dev:serve\""
   },
   "workspaces": [
     "src/posterize"

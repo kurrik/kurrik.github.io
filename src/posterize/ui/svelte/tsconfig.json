@@ -1,0 +1,26 @@
+{
+  "extends": "../../../../tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "types": ["svelte"],
+    "baseUrl": ".",
+    "paths": {
+      "*": ["*"]
+    },
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.svelte"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

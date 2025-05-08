@@ -131,51 +131,27 @@
       <input type="file" id="fileInput" accept="image/*" style="display:none">
     </div>
     <canvas id="canvas" width="320" height="180" style="display:none;" willReadFrequently></canvas>
-    <!-- Empty container for all controls to be injected by UI components -->
-    <div class="controls" id="controlsContainer">
-      <!-- Color control container -->
+    
+    <!-- Svelte App Mount Point - All UI will be rendered by Svelte components -->
+    <div id="posterize-svelte-app" class="svelte-app-container" style="width: 100%;"></div>
+    
+    <!-- Legacy container IDs kept for backward compatibility during migration -->
+    <div style="display:none;">
+      <div id="controlsContainer"></div>
       <div id="colorControlsContainer"></div>
-
-      <!-- Threshold sliders container -->
       <div id="thresholdControlsContainer"></div>
-
-      <!-- Aspect ratio and crop mode container -->
       <div id="aspectRatioControlsContainer"></div>
-
-      <!-- Border controls container -->
       <div id="borderControlsContainer"></div>
-
-      <!-- Noise removal controls container -->
       <div id="noiseControlsContainer"></div>
-
-      <!-- Smoothing controls container -->
       <div id="smoothControlsContainer"></div>
-    </div>
-
-    <!-- Action buttons container -->
-    <div id="actionButtonsContainer" style="display:flex;gap:12px;margin:12px 0 0 0;"></div>
-
-    <!-- Vector preview container -->
-    <div id="vectorPreviewContainer" style="width:100%;margin-top:18px;display:none;flex-direction:column;align-items:center;">
-      <div style="margin-bottom:6px;"><b>Vector Preview (SVG):</b></div>
-
-      <!-- Strategy selection container -->
+      <div id="actionButtonsContainer"></div>
+      <div id="vectorPreviewContainer"></div>
       <div id="strategyControlsContainer"></div>
-
-      <!-- Stencil strategy specific controls -->
-      <div id="stencilControls" style="display:none;"></div>
-
-      <!-- Pen drawing strategy specific controls -->
-      <div id="penDrawingControls" style="display:none;"></div>
-
-      <!-- Vector preview content area -->
+      <div id="stencilControls"></div>
+      <div id="penDrawingControls"></div>
       <div id="vectorPreview"></div>
-
-      <!-- Layer controls container -->
       <div id="layerControls"></div>
-
-      <!-- Export buttons container -->
-      <div id="exportButtonsContainer" style="margin-top:8px;"></div>
+      <div id="exportButtonsContainer"></div>
     </div>
     <div class="footer">Drop an image to begin. Adjust colors and thresholds to posterize.</div>
   </div>
@@ -188,6 +164,7 @@
       document.dispatchEvent(event);
     };
   </script>
-  <script type="module" src="posterize.ts"></script>
+  <!-- Using the Svelte entry point instead of the original script -->
+  <script type="module" src="ui/svelte/index.ts"></script>
 </body>
 </html>
