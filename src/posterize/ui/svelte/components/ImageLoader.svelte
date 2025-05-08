@@ -273,6 +273,40 @@
     loadImageFromUrl(url);
   }
   
+  /**
+   * Reset image and clear all related data
+   * This method is called from the App component when the reset button is clicked
+   */
+  export function resetImage(): void {
+    // Clear image data
+    currentImageData = null;
+    originalImageDataUrl = null;
+    
+    // Clear canvas if it exists
+    if (canvasElement) {
+      const ctx = canvasElement.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      }
+      
+      // Reset canvas dimensions to small default size
+      canvasElement.width = 300;
+      canvasElement.height = 150;
+      canvasElement.style.display = 'none';
+    }
+    
+    // Show dropzone
+    if (dropzoneElement) {
+      dropzoneElement.style.display = 'flex';
+      dropzoneElement.classList.remove('hidden');
+    }
+    
+    // Notify domain layer about image being reset
+    dispatch('imageReset');
+    
+    console.log('Image reset complete');
+  }
+  
   // Initialize component
   onMount(() => {
     setupDragAndDrop();

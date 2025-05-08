@@ -26,6 +26,7 @@
   import CropControl from "./CropControl.svelte";
   import VectorControl from "./VectorControl.svelte";
   import ExportControl from "./ExportControl.svelte";
+  import ResetControl from "./ResetControl.svelte";
 
   // Component references - Use 'any' type to fix TypeScript errors during migration
   let imageLoaderComponent: any;
@@ -220,8 +221,25 @@
     appInitialized = true;
 
     // Set up event listeners for global app events
-    const handleStateReset = () => {
+    const handleStateReset = (event: Event) => {
+      // Cast to CustomEvent to access detail property
+      const customEvent = event as CustomEvent;
       console.log("State reset detected, updating UI...");
+      
+      // Check if image was cleared
+      const detail = customEvent.detail as { clearedImage?: boolean } | undefined;
+      if (detail?.clearedImage) {
+        console.log("Image was cleared, resetting ImageLoader component...");
+        
+        // If we have a reference to the ImageLoader component, reset it
+        if (imageLoaderComponent && typeof imageLoaderComponent.resetImage === 'function') {
+          imageLoaderComponent.resetImage();
+        }
+        
+        // Also trigger reprocessing of the empty state
+        const processImageEvent = new CustomEvent('posterize:processImage');
+        document.dispatchEvent(processImageEvent);
+      }
     };
 
     document.addEventListener("posterize:stateReset", handleStateReset);
@@ -292,6 +310,8 @@
             <h2>Export</h2>
             <!-- @ts-ignore: Svelte component typing during migration -->
             <ExportControl />
+            <!-- @ts-ignore: Svelte component typing during migration -->
+            <ResetControl />
           </div>
         </div>
       </div>
