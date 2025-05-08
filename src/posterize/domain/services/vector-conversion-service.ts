@@ -60,6 +60,7 @@ export class VectorConversionService implements IVectorConversionService {
     if (!this.strategies.has(strategyType)) {
       throw new Error(`Strategy ${strategyType} not registered`);
     }
+    console.log(`STRATEGY DEBUG: Setting active strategy to: ${strategyType}`);
     this.activeStrategy = strategyType;
   }
 
@@ -78,11 +79,19 @@ export class VectorConversionService implements IVectorConversionService {
     const { width, height } = processedImageData.dimensions;
 
     try {
+      // Debug: Log which strategy we're supposed to use
+      console.log(`STRATEGY DEBUG: Converting using active strategy type: ${this.activeStrategy}`);
+      
       // Get the active strategy
       const strategy = this.getStrategy(this.activeStrategy);
+      
+      // Debug: Log the strategy that was actually retrieved
+      console.log(`STRATEGY DEBUG: Using strategy: ${strategy.displayName} (${strategy.strategyType})`);
 
       // Use the strategy to convert the image
+      console.log(`STRATEGY DEBUG: Starting conversion process with ${strategy.strategyType}`);
       const vectorOutput = strategy.convert(buckets, processedImageData.dimensions, settings);
+      console.log(`STRATEGY DEBUG: Conversion completed, produced ${vectorOutput.layers.length} layers`);
 
       return { vectorOutput };
     } catch (error) {

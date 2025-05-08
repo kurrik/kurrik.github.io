@@ -147,6 +147,15 @@ export class ImageProcessingService implements IImageProcessingService {
    * Generate vector graphics from processed image
    */
   generateVector(result: ImageProcessingResult, settings: VectorSettings): VectorConversionResult {
+    // CRITICAL: First ensure that the correct strategy is set based on settings
+    if (settings.strategy) {
+      console.log(`ImageProcessingService: Setting active strategy to ${settings.strategy} before conversion`);
+      // This line is critical - it ensures the strategy from settings is activated
+      this.vectorConversionService.setActiveStrategy(settings.strategy);
+    } else {
+      console.warn('No strategy specified in vector settings, using default');
+    }
+    
     // Convert processed image to vector graphics
     const vectorRequest: VectorConversionRequest = {
       processedImageData: result.processedImageData,

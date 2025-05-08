@@ -35,6 +35,10 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
    * This implementation creates simple black outlines for all regions
    */
   convert(buckets: Uint8Array, dimensions: ImageDimensions, settings: VectorSettings): VectorOutput {
+    console.log('--------------------------------------------------');
+    console.log('PEN DRAWING STRATEGY CONVERT METHOD IS BEING CALLED!');
+    console.log('This is the actual pen drawing implementation');
+    console.log('--------------------------------------------------');
     console.log('PEN DRAWING STRATEGY: Converting with settings:', settings);
     const { width, height } = dimensions;
     const layers: VectorLayer[] = [];
