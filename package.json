@@ -14,7 +14,7 @@
     "dev": "concurrently \"npm:dev:bundle\" \"npm:dev:assets\" \"npm:dev:serve\""
   },
   "workspaces": [
-    "src/*"
+    "src/posterize"
   ],
   "devDependencies": {
     "concurrently": "^8.0.0",

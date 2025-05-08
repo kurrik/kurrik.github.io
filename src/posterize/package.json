@@ -5,8 +5,9 @@
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch"
+    "build": "vite build",
+    "dev": "vite dev",
+    "preview": "vite preview"
   },
   "author": "kurrik",
   "license": "MIT",
@@ -14,6 +15,7 @@
     "@techstark/opencv-js": "^4.10.0-release.1"
   },
   "devDependencies": {
+    "vite": "^5.0.0",
     "typescript": "^5.0.0"
   }
 }

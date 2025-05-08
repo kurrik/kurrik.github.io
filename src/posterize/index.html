@@ -73,7 +73,7 @@
       align-items: center;
       gap: 8px;
     }
-    
+
     .control-group {
       margin-bottom: 12px;
       display: grid;
@@ -135,45 +135,45 @@
     <div class="controls" id="controlsContainer">
       <!-- Color control container -->
       <div id="colorControlsContainer"></div>
-      
+
       <!-- Threshold sliders container -->
       <div id="thresholdControlsContainer"></div>
-      
+
       <!-- Aspect ratio and crop mode container -->
       <div id="aspectRatioControlsContainer"></div>
-      
+
       <!-- Border controls container -->
       <div id="borderControlsContainer"></div>
-      
+
       <!-- Noise removal controls container -->
       <div id="noiseControlsContainer"></div>
-      
+
       <!-- Smoothing controls container -->
       <div id="smoothControlsContainer"></div>
     </div>
-    
+
     <!-- Action buttons container -->
     <div id="actionButtonsContainer" style="display:flex;gap:12px;margin:12px 0 0 0;"></div>
-    
+
     <!-- Vector preview container -->
     <div id="vectorPreviewContainer" style="width:100%;margin-top:18px;display:none;flex-direction:column;align-items:center;">
       <div style="margin-bottom:6px;"><b>Vector Preview (SVG):</b></div>
-      
+
       <!-- Strategy selection container -->
       <div id="strategyControlsContainer"></div>
-      
+
       <!-- Stencil strategy specific controls -->
       <div id="stencilControls" style="display:none;"></div>
-      
+
       <!-- Pen drawing strategy specific controls -->
       <div id="penDrawingControls" style="display:none;"></div>
-      
+
       <!-- Vector preview content area -->
       <div id="vectorPreview"></div>
-      
+
       <!-- Layer controls container -->
       <div id="layerControls"></div>
-      
+
       <!-- Export buttons container -->
       <div id="exportButtonsContainer" style="margin-top:8px;"></div>
     </div>
@@ -188,6 +188,6 @@
       document.dispatchEvent(event);
     };
   </script>
-  <script type="module" src="posterize/posterize.js"></script>
+  <script type="module" src="posterize.ts"></script>
 </body>
 </html>
