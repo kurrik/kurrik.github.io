@@ -14,6 +14,7 @@ import {
 } from '../../types/interfaces';
 import { BaseVectorConversionStrategy } from './base-vector-conversion.strategy';
 import { CrossHatchingService } from '../services/cross-hatching-service';
+import { OutlineService } from '../services/outline-service';
 
 /**
  * A pen drawing conversion strategy that renders regions with black outlines
@@ -24,8 +25,14 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
   displayName = "Pen Drawing";
   description = "Optimized for pen plotters - uses outlines for vector output";
   
-  // Create cross-hatching service instance for use by this strategy
-  private crossHatchingService: ICrossHatchingService = new CrossHatchingService();
+  private crossHatchingService: ICrossHatchingService;
+  private outlineService: OutlineService;
+  
+  constructor() {
+    super();
+    this.crossHatchingService = new CrossHatchingService();
+    this.outlineService = new OutlineService();
+  }
   
   /**
    * Get contextual settings specific to pen drawing
@@ -96,8 +103,9 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
         cv.findContours(mask, contours, hierarchy, mode, method);
         
         const paths: VectorPathData[] = [];
+        const pathDataStrings: string[] = [];
         
-        // Convert each contour to a path
+        // Process each contour
         for (let i = 0; i < contours.size(); i++) {
           const contour = contours.get(i);
           
@@ -111,30 +119,28 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
           // Convert contour to path data
           const pathData = this.contourToPath(contour);
           
-          // Check if we should draw outlines based on the outlineRegions setting
-          const shouldDrawOutlines = crossHatchingSettings.outlineRegions !== undefined ? 
-            crossHatchingSettings.outlineRegions : true; // Default to true if not specified
+          // Store path data for cross-hatching, regardless of outline visibility
+          pathDataStrings.push(pathData);
           
-          // Format the line width as explicit pixel value for SVG
-          const penWidth = typeof crossHatchingSettings.lineWidth === 'number' ? 
-            crossHatchingSettings.lineWidth : 
-            parseFloat(String(crossHatchingSettings.lineWidth));
+          // The pen strategy now only creates path data for the outline and cross-hatching services to use
+          // We don't add outlines directly anymore - the outline service will handle this
           
-          console.log('PEN STRATEGY: outlineRegions=', crossHatchingSettings.outlineRegions, 
-            'shouldDrawOutlines=', shouldDrawOutlines, 'lineWidth=', penWidth);
-          
-          // Only add the path if outlineRegions is enabled
-          if (shouldDrawOutlines) {
-            paths.push({
-              d: pathData,
-              fill: 'none',             // No fill for pen drawing
-              stroke: '#000000',        // Black stroke
-              strokeWidth: penWidth.toString()  // SVG requires string values
-            });
-          }
+          // Add a minimal path for outline/cross-hatching services to use
+          // This path won't be visible but provides the geometry for the services
+          paths.push({
+            d: pathData,
+            fill: 'none',             // No fill for pen drawing
+            stroke: '#000000',        // Black stroke
+            strokeWidth: '0.1'        // Minimal stroke width - will be replaced by services
+          });
+          // We no longer need to add invisible paths because we've updated
+          // the cross-hatching service to handle outlines and cross-hatching independently
           
           contour.delete();
         }
+        
+        // Log the number of paths added to the layer
+        console.log(`PEN STRATEGY: Bucket ${bucket}: ${paths.length} visible paths, ${pathDataStrings.length} total paths`);
         
         // Always add a layer for this bucket, even if it has no paths
         // This ensures the SVG updates even when outlines are disabled
@@ -160,10 +166,33 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
         background: '#ffffff' // White background
       };
       
-      // If cross-hatching is enabled, apply it using the cross-hatching service
+      // Instead of chaining services sequentially, let's apply each service to the original output
+      // and then combine their results to ensure neither overwrites the other
+      
+      // Start with the base vector output
+      let baseOutput = vectorOutput;
+      let outlineOutput = null;
+      let crossHatchOutput = null;
+      
+      // Step 1: If outlines are enabled, apply outlines to the base output
+      if (crossHatchingSettings.outlineRegions) {
+        console.log('PEN DRAWING STRATEGY: Applying outlines');
+        // Format line width as a number
+        const lineWidth = typeof crossHatchingSettings.lineWidth === 'string' 
+          ? parseFloat(crossHatchingSettings.lineWidth) 
+          : crossHatchingSettings.lineWidth;
+        
+        // Apply outlines using the dedicated outline service
+        outlineOutput = this.outlineService.applyToVectorOutput(
+          baseOutput, 
+          lineWidth,
+          true // Enable outlines
+        );
+      }
+      
+      // Step 2: If cross-hatching is enabled, apply it to the base output
       if (crossHatchingSettings.enabled) {
-        console.log('PEN DRAWING STRATEGY: Applying cross-hatching with settings:', JSON.stringify(crossHatchingSettings, null, 2));
-        console.log('PEN DRAWING SETTINGS - lineWidth:', crossHatchingSettings.lineWidth, 'outlineRegions:', crossHatchingSettings.outlineRegions);
+        console.log('PEN DRAWING STRATEGY: Applying cross-hatching');
         
         // Make sure settings have the right types before passing to service
         const validatedSettings = {
@@ -172,17 +201,51 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
           lineWidth: typeof crossHatchingSettings.lineWidth === 'string' 
             ? parseFloat(crossHatchingSettings.lineWidth) 
             : crossHatchingSettings.lineWidth,
-          // Ensure outlineRegions is a boolean
-          outlineRegions: !!crossHatchingSettings.outlineRegions
+          // Cross-hatching service no longer handles outlines
+          outlineRegions: false
         };
         
-        console.log('PEN DRAWING STRATEGY: Using validated settings:', JSON.stringify(validatedSettings, null, 2));
-        const result = this.crossHatchingService.applyToVectorOutput(vectorOutput, validatedSettings);
-        return result;
-      } else {
-        console.log('PEN DRAWING STRATEGY: Cross-hatching disabled, returning regular output');
-        return vectorOutput;
+        // Apply cross-hatching using the cross-hatching service
+        crossHatchOutput = this.crossHatchingService.applyToVectorOutput(baseOutput, validatedSettings);
       }
+      
+      // Step 3: Combine the outputs based on what features were enabled
+      let finalOutput: VectorOutput;
+      
+      if (outlineOutput && crossHatchOutput) {
+        // Both features enabled - combine their paths
+        console.log('PEN DRAWING STRATEGY: Combining outline and cross-hatching outputs');
+        finalOutput = {
+          dimensions: baseOutput.dimensions,
+          background: baseOutput.background,
+          layers: []
+        };
+        
+        // For each layer in the base output, create a combined layer
+        baseOutput.layers.forEach((baseLayer, index) => {
+          const outlinePaths = outlineOutput.layers[index]?.paths || [];
+          const crossHatchPaths = crossHatchOutput.layers[index]?.paths || [];
+          
+          // Combine all paths from both outputs
+          finalOutput.layers.push({
+            id: baseLayer.id,
+            paths: [...outlinePaths, ...crossHatchPaths],
+            visible: true
+          });
+        });
+      } else if (outlineOutput) {
+        // Only outlines enabled
+        finalOutput = outlineOutput;
+      } else if (crossHatchOutput) {
+        // Only cross-hatching enabled
+        finalOutput = crossHatchOutput;
+      } else {
+        // Neither feature enabled
+        finalOutput = baseOutput;
+      }
+      
+      // Return the final result after applying all services
+      return finalOutput;
       
     } catch (error) {
       console.error('Error in pen drawing conversion:', error);

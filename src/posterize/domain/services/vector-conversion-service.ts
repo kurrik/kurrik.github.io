@@ -18,6 +18,8 @@ import {
   PenDrawingConversionStrategy
 } from '../../domain/strategies';
 
+import { CrossHatchingService } from './cross-hatching-service';
+
 export class VectorConversionService implements IVectorConversionService {
   private strategies: Map<StrategyType, IVectorConversionStrategy> = new Map();
   private activeStrategy: StrategyType = StrategyType.STENCIL;
@@ -25,6 +27,7 @@ export class VectorConversionService implements IVectorConversionService {
   constructor() {
     // Register default strategies
     this.registerStrategy(new StencilConversionStrategy());
+    // Create PenDrawingConversionStrategy with no constructor arguments
     this.registerStrategy(new PenDrawingConversionStrategy());
   }
 

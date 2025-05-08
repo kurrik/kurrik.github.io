@@ -59,42 +59,32 @@ export class CrossHatchingService implements ICrossHatchingService {
       // In a real implementation, we would analyze the fill color
       const toneLevel = 1 - (layerIndex / (vectorOutput.layers.length - 1 || 1));
       
-      // Create a new layer with cross-hatched paths
-      const crossHatchedPaths: VectorPathData[] = [];
+      // Keep existing paths (like outlines) and add cross-hatching
+      const combinedPaths: VectorPathData[] = [...layer.paths]; // Start with existing paths
       
-      // Process each path in the layer
+      // Process each path in the layer for cross-hatching
       layer.paths.forEach(path => {
-        // If outlineRegions is enabled, add the original path as an outline with no fill
-        console.log('CROSS-HATCHING DEBUG: outlineRegions setting is:', validatedSettings.outlineRegions, 'type:', typeof validatedSettings.outlineRegions);
-        
-        if (validatedSettings.outlineRegions) {
-          console.log('CROSS-HATCHING DEBUG: Adding outline with lineWidth:', validatedSettings.lineWidth);
-          crossHatchedPaths.push({
-            d: path.d,
-            fill: 'none',
-            stroke: '#000000',  // Always use black for pen plotting
-            strokeWidth: validatedSettings.lineWidth.toString() // Use the pen width setting
-          });
-        } else {
-          console.log('CROSS-HATCHING DEBUG: Skipping outline because outlineRegions is FALSE');
+        // Only add cross-hatching patterns if enabled
+        if (validatedSettings.enabled) {
+          // Generate cross-hatching patterns for this path
+          console.log('CROSS-HATCHING DEBUG: Adding cross-hatching patterns');
+          const hatchingPatterns = this.generateCrossHatchingForPath(
+            path,
+            toneLevel,
+            validatedSettings,  // Use validated settings
+            width,
+            height
+          );
+          
+          // Add the cross-hatching patterns to our combined paths
+          combinedPaths.push(...hatchingPatterns);
         }
-        
-        // Add cross-hatching lines within the path
-        const hatchingPatterns = this.generateCrossHatchingForPath(
-          path,
-          toneLevel,
-          validatedSettings,  // Use validated settings
-          width,
-          height
-        );
-        
-        crossHatchedPaths.push(...hatchingPatterns);
       });
       
-      // Add the cross-hatched layer
+      // Add the layer with both existing paths and cross-hatching
       crossHatchedLayers.push({
         id: layer.id,
-        paths: crossHatchedPaths,
+        paths: combinedPaths, // Both original paths and cross-hatching
         visible: true
       });
     });
