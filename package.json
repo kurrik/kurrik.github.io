@@ -20,5 +20,8 @@
     "cpx": "^1.5.0",
     "serve": "^14.0.0",
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@flatten-js/core": "^1.6.2"
   }
 }

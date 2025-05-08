@@ -4,7 +4,14 @@
  * suitable for pen plotter drawing with varying density/angle
  * to simulate different tones.
  */
-import { CrossHatchingSettings, VectorOutput, VectorLayer, VectorPathData, ICrossHatchingService } from '../../types/interfaces';
+import { 
+  CrossHatchingSettings, 
+  VectorOutput, 
+  VectorLayer, 
+  VectorPathData,
+  ICrossHatchingService
+} from '../../types/interfaces';
+import Flatten from '@flatten-js/core';
 
 // Type definition for extended VectorLayer with pathData
 type VectorLayerWithPathData = VectorLayer & { pathData?: string[] };
@@ -113,6 +120,7 @@ export class CrossHatchingService implements ICrossHatchingService {
   /**
    * Generate cross-hatching patterns for a specific path
    * This creates a series of lines that simulate tones for pen plotters
+   * Properly clipped to the shape boundaries for pen plotter output
    */
   private generateCrossHatchingForPath(
     path: VectorPathData,
@@ -121,8 +129,14 @@ export class CrossHatchingService implements ICrossHatchingService {
     width: number,
     height: number
   ): VectorPathData[] {
-    console.log('CROSS-HATCHING DEBUG: Generating patterns with lineWidth:', settings.lineWidth);
+    console.log('CROSS-HATCHING: Generating patterns with lineWidth:', settings.lineWidth);
     const hatchingPaths: VectorPathData[] = [];
+    
+    // Verify we have valid path data to work with
+    if (!path.d) {
+      console.warn('CROSS-HATCHING: Invalid path data provided');
+      return [];
+    }
     
     // Base spacing between lines (in pixels)
     // Darker tones (lower toneLevel) get denser hatching (smaller spacing)
@@ -136,48 +150,290 @@ export class CrossHatchingService implements ICrossHatchingService {
     const primaryAngle = settings.angle % 180;
     const radians = (primaryAngle * Math.PI) / 180;
     
-    // Create a clipping path for the hatching (using the original path shape)
-    const clipPathId = `clip-${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Generate primary hatching lines
-    const primaryHatching = this.generateHatchingLines(
-      width, 
-      height,
-      spacing,
-      radians,
-      settings.lineWidth,
-      `url(#${clipPathId})`
-    );
-    
-    hatchingPaths.push(primaryHatching);
-    
-    // For darker tones (< 0.5), add a second layer of hatching at 90° angle
-    if (toneLevel < 0.5) {
-      // Secondary angle (perpendicular to primary)
-      const secondaryAngle = (primaryAngle + 90) % 180;
-      const secondaryRadians = (secondaryAngle * Math.PI) / 180;
-      
-      // Use different spacing for the second layer
-      const secondarySpacing = spacing * 1.5;
-      
-      const secondaryHatching = this.generateHatchingLines(
-        width,
+    try {
+      // Generate hatching lines clipped to the path boundary
+      const primaryLines = this.generateClippedHatchingLines(
+        path.d,
+        width, 
         height,
-        secondarySpacing,
-        secondaryRadians,
-        settings.lineWidth,
-        `url(#${clipPathId})`
+        spacing,
+        radians,
+        settings.lineWidth
       );
       
-      hatchingPaths.push(secondaryHatching);
+      // Add each primary hatching line segment as a separate path
+      for (const linePath of primaryLines) {
+        hatchingPaths.push({
+          d: linePath,
+          fill: 'none',
+          stroke: '#000000', // Black stroke for pen plotting
+          strokeWidth: settings.lineWidth.toString()
+        });
+      }
+      
+      // For darker tones (< 0.5), add a second layer of hatching at 90° angle
+      if (toneLevel < 0.5) {
+        // Secondary angle (perpendicular to primary)
+        const secondaryAngle = (primaryAngle + 90) % 180;
+        const secondaryRadians = (secondaryAngle * Math.PI) / 180;
+        
+        // Use different spacing for the second layer
+        const secondarySpacing = spacing * 1.5;
+        
+        // Generate secondary cross-hatching lines
+        const secondaryLines = this.generateClippedHatchingLines(
+          path.d,
+          width,
+          height,
+          secondarySpacing,
+          secondaryRadians,
+          settings.lineWidth
+        );
+        
+        // Add each secondary hatching line segment as a separate path
+        for (const linePath of secondaryLines) {
+          hatchingPaths.push({
+            d: linePath,
+            fill: 'none',
+            stroke: '#000000', // Black stroke for pen plotting
+            strokeWidth: settings.lineWidth.toString()
+          });
+        }
+      }
+    } catch (error) {
+      console.error('CROSS-HATCHING: Error generating hatching lines', error);
     }
     
+    console.log(`CROSS-HATCHING: Generated ${hatchingPaths.length} hatching paths`);
     return hatchingPaths;
   }
   
   /**
+   * Parse an SVG path string into a Flatten.js polygon
+   * @param svgPath SVG path data string
+   * @returns Flatten.js polygon or null if parsing failed
+   */
+  private parseSvgPathToPolygon(svgPath: string): Flatten.Polygon | null {
+    try {
+      // Basic SVG path parser - handles M, L, Z commands
+      // This is a simplified implementation that works for many basic paths
+      const commands = svgPath.match(/[MLZ][^MLZ]*/g) || [];
+      const points: Flatten.Point[] = [];
+      
+      let currentX = 0;
+      let currentY = 0;
+      
+      for (const cmd of commands) {
+        const type = cmd.charAt(0);
+        const coords = cmd.substring(1).trim().split(/[\s,]+/).filter(c => c.length > 0).map(parseFloat);
+        
+        switch (type) {
+          case 'M': // Move to
+            for (let i = 0; i < coords.length; i += 2) {
+              currentX = coords[i];
+              currentY = coords[i + 1];
+              if (i === 0) { // First point after M
+                points.push(new Flatten.Point(currentX, currentY));
+              } else { // Subsequent points are treated as L
+                points.push(new Flatten.Point(currentX, currentY));
+              }
+            }
+            break;
+            
+          case 'L': // Line to
+            for (let i = 0; i < coords.length; i += 2) {
+              currentX = coords[i];
+              currentY = coords[i + 1];
+              points.push(new Flatten.Point(currentX, currentY));
+            }
+            break;
+            
+          case 'Z': // Close path
+            // Add the first point again to close the path
+            if (points.length > 0 && 
+                (points[0].x !== currentX || points[0].y !== currentY)) {
+              points.push(new Flatten.Point(points[0].x, points[0].y));
+            }
+            break;
+        }
+      }
+      
+      // Create a polygon from the points
+      if (points.length > 2) {
+        // Create segments between consecutive points
+        const segments: Flatten.Segment[] = [];
+        for (let i = 0; i < points.length - 1; i++) {
+          segments.push(new Flatten.Segment(points[i], points[i + 1]));
+        }
+        
+        return new Flatten.Polygon(segments);
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error parsing SVG path:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Generate a set of line segments properly clipped to a shape boundary
+   * For pen plotter output, we need to calculate actual geometry rather than using SVG clip-path
+   * @param shapePath The SVG path data string defining the shape boundary
+   * @param width Canvas width
+   * @param height Canvas height
+   * @param spacing Spacing between parallel hatching lines
+   * @param angleRadians Angle of hatching lines in radians
+   * @param lineWidth Line width for display purposes only
+   * @returns Array of SVG path data strings for each clipped line segment
+   */
+  private generateClippedHatchingLines(
+    shapePath: string,
+    width: number,
+    height: number,
+    spacing: number,
+    angleRadians: number,
+    lineWidth: number
+  ): string[] {
+    console.log('CROSS-HATCHING: Generating clipped hatching lines using Flatten.js');
+    
+    // Array to store the resulting clipped line segments
+    const clippedSegments: string[] = [];
+    
+    try {
+      // Parse the SVG path to a Flatten.js polygon
+      const polygon = this.parseSvgPathToPolygon(shapePath);
+      
+      if (!polygon) {
+        throw new Error('Failed to parse SVG path to polygon');
+      }
+      
+      // Get the bounding box of the polygon
+      const box = polygon.box;
+      const bboxWidth = box.xmax - box.xmin;
+      const bboxHeight = box.ymax - box.ymin;
+      const bboxDiagonal = Math.sqrt(bboxWidth * bboxWidth + bboxHeight * bboxHeight);
+      
+      // Calculate normal vector perpendicular to hatching line direction
+      const nx = Math.cos(angleRadians + Math.PI / 2);
+      const ny = Math.sin(angleRadians + Math.PI / 2);
+      
+      // Direction vector along hatching lines
+      const dx = Math.cos(angleRadians);
+      const dy = Math.sin(angleRadians);
+      
+      // Center of the bounding box
+      const centerX = (box.xmax + box.xmin) / 2;
+      const centerY = (box.ymax + box.ymin) / 2;
+      
+      // Calculate appropriate spacing and number of lines
+      // Add padding to ensure we cover the entire shape
+      const paddingFactor = 1.2; // 20% extra lines to ensure coverage
+      const numLines = Math.ceil(bboxDiagonal / spacing * paddingFactor);
+      const startOffset = -bboxDiagonal / 2;
+      
+      // Generate and clip hatching lines
+      for (let i = 0; i < numLines; i++) {
+        // Calculate offset from center for this line
+        const offset = startOffset + i * spacing;
+        
+        // Calculate a point on the line
+        const cx = centerX + nx * offset;
+        const cy = centerY + ny * offset;
+        
+        // Create an "infinite" line (well beyond our shape)
+        const lineLength = bboxDiagonal * 2; // Make it long enough to span the shape
+        const x1 = cx - dx * lineLength;
+        const y1 = cy - dy * lineLength;
+        const x2 = cx + dx * lineLength;
+        const y2 = cy + dy * lineLength;
+        
+        // Create a Flatten.js line segment
+        const lineSegment = new Flatten.Segment(
+          new Flatten.Point(x1, y1),
+          new Flatten.Point(x2, y2)
+        );
+        
+        // Calculate intersection with the polygon
+        // This returns an array of points or segments where the line intersects the polygon
+        const intersections = polygon.intersect(lineSegment);
+        
+        // Process the intersections
+        if (intersections.length > 0) {
+          // For each pair of intersection points, create a line segment that's inside the polygon
+          // We need to sort the intersections along the line
+          const sortedPoints = intersections
+            .filter(intersection => intersection instanceof Flatten.Point)
+            .map(point => {
+              const p = point as Flatten.Point;
+              // Calculate parameter t along the line (0 at x1,y1 and 1 at x2,y2)
+              const t = ((p.x - x1) * dx + (p.y - y1) * dy) / (lineLength * 2);
+              return { point: p, t };
+            })
+            .sort((a, b) => a.t - b.t);
+          
+          // Create line segments between pairs of intersection points
+          for (let j = 0; j < sortedPoints.length - 1; j += 2) {
+            if (j + 1 < sortedPoints.length) {
+              const p1 = sortedPoints[j].point;
+              const p2 = sortedPoints[j + 1].point;
+              
+              // Add to our result
+              clippedSegments.push(`M${p1.x.toFixed(2)},${p1.y.toFixed(2)} L${p2.x.toFixed(2)},${p2.y.toFixed(2)}`);
+            }
+          }
+        }
+      }
+      
+      console.log(`CROSS-HATCHING: Generated ${clippedSegments.length} clipped line segments`);
+    } catch (error) {
+      console.error('Error in cross-hatching:', error);
+      
+      // Fallback approach if Flatten.js fails
+      console.log('CROSS-HATCHING: Using fallback hatching pattern');
+      
+      // Calculate diagonal length to ensure lines span the entire area
+      const diagonalLength = Math.sqrt(width * width + height * height);
+      
+      // Calculate normal vector perpendicular to hatching direction
+      const nx = Math.cos(angleRadians + Math.PI / 2);
+      const ny = Math.sin(angleRadians + Math.PI / 2);
+      
+      // Direction vector for hatching lines
+      const dx = Math.cos(angleRadians);
+      const dy = Math.sin(angleRadians);
+      
+      // Use wider spacing for the fallback approach
+      const adjustedSpacing = spacing * 2;
+      const numLines = Math.ceil(diagonalLength / adjustedSpacing);
+      const startOffset = -diagonalLength / 2;
+      
+      // Generate some hatching lines that cover the general shape area
+      for (let i = 0; i < numLines; i++) {
+        const offset = startOffset + i * adjustedSpacing;
+        
+        const cx = width / 2 + nx * offset;
+        const cy = height / 2 + ny * offset;
+        
+        // Make the lines span about 70% of the area to approximate clipping
+        const lineLength = diagonalLength * 0.7;
+        const x1 = cx - dx * lineLength / 2;
+        const y1 = cy - dy * lineLength / 2;
+        const x2 = cx + dx * lineLength / 2;
+        const y2 = cy + dy * lineLength / 2;
+        
+        clippedSegments.push(`M${x1.toFixed(2)},${y1.toFixed(2)} L${x2.toFixed(2)},${y2.toFixed(2)}`);
+      }
+    }
+    
+    console.log(`CROSS-HATCHING: Generated ${clippedSegments.length} clipped line segments`);
+    return clippedSegments;
+  }
+
+  /**
    * Generate a set of parallel lines to create a hatching pattern
-   * These lines will be clipped by the shape path to create the hatching effect
+   * Kept for reference - now replaced by generateClippedHatchingLines
+   * @deprecated Use generateClippedHatchingLines instead
    */
   private generateHatchingLines(
     width: number,
@@ -187,7 +443,7 @@ export class CrossHatchingService implements ICrossHatchingService {
     lineWidth: number,
     clipPath: string
   ): VectorPathData {
-    console.log('CROSS-HATCHING DEBUG: Generating hatching lines with lineWidth:', lineWidth);
+    console.log('CROSS-HATCHING: Generating hatching lines with lineWidth:', lineWidth);
     // Calculate diagonal length to ensure lines span the entire area
     const diagonalLength = Math.sqrt(width * width + height * height);
     
@@ -222,20 +478,15 @@ export class CrossHatchingService implements ICrossHatchingService {
       lines.push(`M${x1},${y1} L${x2},${y2}`);
     }
     
-    // Combine all lines into a single path
-    console.log('CROSS-HATCHING DEBUG: Final line width being used:', lineWidth, 'type:', typeof lineWidth);
-    
     // SVG stroke-width doesn't use px units, it's just a number as a string
     // Create a properly formatted stroke width value
     const strokeWidthValue = lineWidth.toString();
-    console.log('CROSS-HATCHING DEBUG: Using stroke width value:', strokeWidthValue);
     
     return {
       d: lines.join(' '),
       fill: 'none',
       stroke: '#000000', // Always use black for pen plotting
-      strokeWidth: strokeWidthValue, // Pure number as string without px units
-      // Note: In actual implementation, we would use clip-path with the shape path
+      strokeWidth: strokeWidthValue // Pure number as string without px units
     };
   }
 }
