@@ -142,31 +142,20 @@
   // Initialize component
   onMount(() => {
     // Set up a handler for vector output changes
-    const handleVectorOutputChange = (output: VectorOutput | null) => {
+    const handleVectorOutputChange = (output: VectorOutput) => {
+      console.log('ExportControl: Vector output updated', output);
       onVectorOutputChange(output);
     };
     
-    // Subscribe to vector output changes
-    // Use addEventListener for event-based notification instead of direct subscription
-    // This avoids TypeScript issues with unsubscribe function types
-    document.addEventListener('vectorOutput:changed', (e: any) => {
-      if (e.detail) {
-        handleVectorOutputChange(e.detail);
-      }
-    });
+    // Subscribe to vector output changes using the service's subscription method
+    vectorService.onVectorOutputChange(handleVectorOutputChange);
     
     // Check if there's already a vector output
     const currentOutput = vectorService.getVectorOutput();
+    console.log('ExportControl: Initial vector output state:', currentOutput ? 'available' : 'not available');
     hasVectorOutput = !!currentOutput;
     
-    return () => {
-      // Clean up subscription
-      document.removeEventListener('vectorOutput:changed', (e: any) => {
-        if (e.detail) {
-          handleVectorOutputChange(e.detail);
-        }
-      });
-    };
+    // No need for cleanup as Svelte will handle component destruction
   });
 </script>
 
