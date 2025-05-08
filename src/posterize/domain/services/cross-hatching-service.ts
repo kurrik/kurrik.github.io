@@ -65,6 +65,8 @@ export class CrossHatchingService implements ICrossHatchingService {
       // Process each path in the layer
       layer.paths.forEach(path => {
         // If outlineRegions is enabled, add the original path as an outline with no fill
+        console.log('CROSS-HATCHING DEBUG: outlineRegions setting is:', validatedSettings.outlineRegions, 'type:', typeof validatedSettings.outlineRegions);
+        
         if (validatedSettings.outlineRegions) {
           console.log('CROSS-HATCHING DEBUG: Adding outline with lineWidth:', validatedSettings.lineWidth);
           crossHatchedPaths.push({
@@ -74,7 +76,7 @@ export class CrossHatchingService implements ICrossHatchingService {
             strokeWidth: validatedSettings.lineWidth.toString() // Use the pen width setting
           });
         } else {
-          console.log('CROSS-HATCHING DEBUG: Skipping outline because outlineRegions is:', validatedSettings.outlineRegions);
+          console.log('CROSS-HATCHING DEBUG: Skipping outline because outlineRegions is FALSE');
         }
         
         // Add cross-hatching lines within the path

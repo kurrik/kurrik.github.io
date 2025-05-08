@@ -58,7 +58,8 @@ export class StateManagementService implements IStateManagementService {
           enabled: false,
           density: 5,
           angle: 45,
-          lineWidth: 0.5
+          lineWidth: 0.5,
+          outlineRegions: true
         },
         
         originalImageDataUrl: savedState.originalImageDataUrl
@@ -84,7 +85,8 @@ export class StateManagementService implements IStateManagementService {
         enabled: false,
         density: 5,
         angle: 45,
-        lineWidth: 0.5
+        lineWidth: 0.5,
+        outlineRegions: true
       }
     };
   }

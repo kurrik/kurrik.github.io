@@ -111,33 +111,41 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
           // Convert contour to path data
           const pathData = this.contourToPath(contour);
           
-          // Add path with pen drawing styling (no fill, black stroke)
-          // Use lineWidth from cross-hatching settings if available
+          // Check if we should draw outlines based on the outlineRegions setting
+          const shouldDrawOutlines = crossHatchingSettings.outlineRegions !== undefined ? 
+            crossHatchingSettings.outlineRegions : true; // Default to true if not specified
+          
           // Format the line width as explicit pixel value for SVG
           const penWidth = typeof crossHatchingSettings.lineWidth === 'number' ? 
             crossHatchingSettings.lineWidth : 
             parseFloat(String(crossHatchingSettings.lineWidth));
           
-          console.log('PEN STRATEGY: Applying lineWidth:', penWidth, 'px');
+          console.log('PEN STRATEGY: outlineRegions=', crossHatchingSettings.outlineRegions, 
+            'shouldDrawOutlines=', shouldDrawOutlines, 'lineWidth=', penWidth);
           
-          paths.push({
-            d: pathData,
-            fill: 'none',             // No fill for pen drawing
-            stroke: '#000000',        // Black stroke
-            strokeWidth: penWidth.toString()  // SVG requires string values
-          });
+          // Only add the path if outlineRegions is enabled
+          if (shouldDrawOutlines) {
+            paths.push({
+              d: pathData,
+              fill: 'none',             // No fill for pen drawing
+              stroke: '#000000',        // Black stroke
+              strokeWidth: penWidth.toString()  // SVG requires string values
+            });
+          }
           
           contour.delete();
         }
         
-        // Add a layer for this bucket if it has paths
-        if (paths.length > 0) {
-          layers.push({
-            id: `pen-layer-${bucket}`,
-            paths,
-            visible: true
-          });
-        }
+        // Always add a layer for this bucket, even if it has no paths
+        // This ensures the SVG updates even when outlines are disabled
+        layers.push({
+          id: `pen-layer-${bucket}`,
+          paths,
+          visible: true
+        });
+        
+        // Log the layer that's being added
+        console.log(`PEN STRATEGY: Adding layer for bucket ${bucket} with ${paths.length} paths`);
         
         // Clean up OpenCV resources
         mask.delete();

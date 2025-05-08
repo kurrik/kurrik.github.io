@@ -252,14 +252,33 @@
   
   // Update outline regions setting
   function updateOutlineRegions(value: boolean) {
+    // Update the local component variable first
+    outlineRegions = value;
+    
+    console.log('Updating outline regions to:', outlineRegions);
+    
     // Update the state service
-    const state = stateService.getDefaultState();
-    if (state.crossHatchingSettings) {
+    const state = get(posterizeState) || stateService.getDefaultState();
+    if (!state.crossHatchingSettings) {
+      state.crossHatchingSettings = {
+        enabled: crossHatchingEnabled,
+        density: crossHatchingDensity,
+        angle: crossHatchingAngle,
+        lineWidth: penWidth,
+        outlineRegions: value
+      };
+    } else {
       state.crossHatchingSettings.outlineRegions = value;
-      stateService.saveState(state);
     }
     
+    // Save state and trigger UI update
+    stateService.saveState(state);
+    
+    // Force regeneration of vector output with updated settings
     updateVectorPreview();
+    
+    // Debug the current state after update
+    console.log('Current state after outline regions update:', get(posterizeState));
   }
   
   // Update pen width setting
@@ -269,14 +288,28 @@
     
     console.log('Updating pen width to:', penWidth);
     
-    // Update the state service
-    const state = stateService.getDefaultState();
-    if (state.crossHatchingSettings) {
+    // Update the state service using current state from store
+    const state = get(posterizeState) || stateService.getDefaultState();
+    if (!state.crossHatchingSettings) {
+      state.crossHatchingSettings = {
+        enabled: crossHatchingEnabled,
+        density: crossHatchingDensity,
+        angle: crossHatchingAngle,
+        lineWidth: value,
+        outlineRegions: outlineRegions
+      };
+    } else {
       state.crossHatchingSettings.lineWidth = value;
-      stateService.saveState(state);
     }
     
+    // Save state and trigger UI update
+    stateService.saveState(state);
+    
+    // Force regeneration of vector output with updated settings
     updateVectorPreview();
+    
+    // Debug the current state after update
+    console.log('Current state after pen width update:', state.crossHatchingSettings);
   }
   
   // Show or hide all layers
