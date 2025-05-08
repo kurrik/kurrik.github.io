@@ -8,31 +8,40 @@ import {
   ImageDimensions,
   VectorLayer,
   VectorPathData,
-  VectorType
+  VectorType,
+  ICrossHatchingService,
+  CrossHatchingSettings
 } from '../../types/interfaces';
 import { BaseVectorConversionStrategy } from './base-vector-conversion.strategy';
+import { CrossHatchingService } from '../services/cross-hatching-service';
 
 /**
- * A simple pen drawing conversion strategy that renders regions with black outlines
- * This is a basic placeholder implementation to ensure UI switching works correctly
+ * A pen drawing conversion strategy that renders regions with black outlines
+ * and applies cross-hatching for simulating tones with pen plotters
  */
 export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
   strategyType = StrategyType.PEN_DRAWING;
   displayName = "Pen Drawing";
   description = "Optimized for pen plotters - uses outlines for vector output";
   
+  // Create cross-hatching service instance for use by this strategy
+  private crossHatchingService: ICrossHatchingService = new CrossHatchingService();
+  
   /**
    * Get contextual settings specific to pen drawing
    */
   getContextualSettings(): Record<string, any> {
     return {
-      // No specific settings for the basic implementation
+      // Cross-hatching settings would be shown in the UI
+      crossHatchingEnabled: true,
+      crossHatchingDensity: 5,
+      crossHatchingAngle: 45
     };
   }
   
   /**
    * Convert posterized image data to vector format optimized for pen drawing
-   * This implementation creates simple black outlines for all regions
+   * This implementation creates outlines and applies cross-hatching if enabled
    */
   convert(buckets: Uint8Array, dimensions: ImageDimensions, settings: VectorSettings): VectorOutput {
     console.log('--------------------------------------------------');
@@ -40,6 +49,18 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
     console.log('This is the actual pen drawing implementation');
     console.log('--------------------------------------------------');
     console.log('PEN DRAWING STRATEGY: Converting with settings:', settings);
+    
+    // Get cross-hatching settings from vector settings or use defaults
+    const crossHatchingSettings = settings.crossHatchingSettings || {
+      enabled: false,
+      density: 5,
+      angle: 45,
+      lineWidth: 1.5,
+      outlineRegions: true
+    };
+    
+    console.log('PEN DRAWING STRATEGY: Using cross-hatching settings:', crossHatchingSettings);
+    
     const { width, height } = dimensions;
     const layers: VectorLayer[] = [];
     const colorCount = Math.max(...Array.from(buckets)) + 1;
@@ -91,11 +112,12 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
           const pathData = this.contourToPath(contour);
           
           // Add path with pen drawing styling (no fill, black stroke)
+          // Use lineWidth from cross-hatching settings if available
           paths.push({
             d: pathData,
             fill: 'none',             // No fill for pen drawing
             stroke: '#000000',        // Black stroke
-            strokeWidth: '1.5'        // Slightly thicker for visibility
+            strokeWidth: crossHatchingSettings.lineWidth.toString() // Use defined pen width
           });
           
           contour.delete();
@@ -116,12 +138,21 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
         hierarchy.delete();
       }
       
-      // Create the final vector output
-      return {
+      // Create the initial vector output
+      const vectorOutput = {
         dimensions: { width, height },
         layers,
         background: '#ffffff' // White background
       };
+      
+      // If cross-hatching is enabled, apply it using the cross-hatching service
+      if (crossHatchingSettings.enabled) {
+        console.log('PEN DRAWING STRATEGY: Applying cross-hatching with settings:', crossHatchingSettings);
+        return this.crossHatchingService.applyToVectorOutput(vectorOutput, crossHatchingSettings);
+      } else {
+        console.log('PEN DRAWING STRATEGY: Cross-hatching disabled, returning regular output');
+        return vectorOutput;
+      }
       
     } catch (error) {
       console.error('Error in pen drawing conversion:', error);

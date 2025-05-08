@@ -21,9 +21,14 @@ export class CrossHatchingService implements ICrossHatchingService {
     vectorOutput: VectorOutput,
     settings: CrossHatchingSettings
   ): VectorOutput {
+    console.log('CROSS-HATCHING DEBUG: Applying cross-hatching with settings:', settings);
+    
     if (!settings.enabled) {
+      console.log('CROSS-HATCHING DEBUG: Cross-hatching disabled, returning original output');
       return vectorOutput;
     }
+    
+    console.log('CROSS-HATCHING DEBUG: Cross-hatching is enabled, proceeding with application');
 
     const { width, height } = vectorOutput.dimensions;
     const crossHatchedLayers: VectorLayer[] = [];
@@ -46,13 +51,15 @@ export class CrossHatchingService implements ICrossHatchingService {
       
       // Process each path in the layer
       layer.paths.forEach(path => {
-        // Add the original path as an outline with no fill
-        crossHatchedPaths.push({
-          d: path.d,
-          fill: 'none',
-          stroke: path.stroke,
-          strokeWidth: path.strokeWidth
-        });
+        // If outlineRegions is enabled, add the original path as an outline with no fill
+        if (settings.outlineRegions) {
+          crossHatchedPaths.push({
+            d: path.d,
+            fill: 'none',
+            stroke: '#000000',  // Always use black for pen plotting
+            strokeWidth: settings.lineWidth.toString() // Use the pen width setting
+          });
+        }
         
         // Add cross-hatching lines within the path
         const hatchingPatterns = this.generateCrossHatchingForPath(
@@ -195,7 +202,7 @@ export class CrossHatchingService implements ICrossHatchingService {
     return {
       d: lines.join(' '),
       fill: 'none',
-      stroke: '#000',
+      stroke: '#000000', // Always use black for pen plotting
       strokeWidth: lineWidth.toString(),
       // Note: In actual implementation, we would use clip-path with the shape path
     };

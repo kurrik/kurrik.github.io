@@ -6,7 +6,6 @@ import {
   ImageData,
   PosterizeSettings,
   VectorSettings,
-  CrossHatchingSettings,
   ImageProcessingResult,
   VectorConversionResult,
   VectorOutput,
@@ -16,7 +15,6 @@ import { PosterizeService } from '../../domain/services/posterize-service';
 import { NoiseRemovalService } from '../../domain/services/noise-removal-service';
 import { SmoothingService } from '../../domain/services/smoothing-service';
 import { VectorConversionService } from '../../domain/services/vector-conversion-service';
-import { CrossHatchingService } from '../../domain/services/cross-hatching-service';
 import { ImageDataModel } from '../../domain/models/image-data';
 
 export class ImageProcessingService implements IImageProcessingService {
@@ -24,14 +22,12 @@ export class ImageProcessingService implements IImageProcessingService {
   private noiseRemovalService: NoiseRemovalService;
   private smoothingService: SmoothingService;
   private vectorConversionService: VectorConversionService;
-  private crossHatchingService: CrossHatchingService;
 
   constructor() {
     this.posterizeService = new PosterizeService();
     this.noiseRemovalService = new NoiseRemovalService();
     this.smoothingService = new SmoothingService();
     this.vectorConversionService = new VectorConversionService();
-    this.crossHatchingService = new CrossHatchingService();
   }
 
   /**
@@ -166,16 +162,8 @@ export class ImageProcessingService implements IImageProcessingService {
     return this.vectorConversionService.convert(vectorRequest);
   }
 
-  /**
-   * Apply cross-hatching to vector output
-   */
-  applyCrossHatching(vectorResult: VectorConversionResult, settings: CrossHatchingSettings): VectorOutput {
-    // Apply cross-hatching if enabled
-    return this.crossHatchingService.applyToVectorOutput(
-      vectorResult.vectorOutput,
-      settings
-    );
-  }
+  // Cross-hatching is now handled directly by the pen drawing strategy
+  // This is more aligned with DDD principles
 
   /**
    * Process an image through the entire pipeline
@@ -189,23 +177,11 @@ export class ImageProcessingService implements IImageProcessingService {
     // Run the image processing pipeline
     const processingResult = this.processImage(imageData, posterizeSettings);
     
-    // Generate vector output
+    // Generate vector output using the appropriate strategy
+    // The strategy will handle cross-hatching internally if needed
     const vectorResult = this.generateVector(processingResult, vectorSettings);
     
-    // Get cross-hatching settings from vectorSettings or use defaults
-    const crossHatchingSettings = vectorSettings.crossHatchingSettings || {
-      enabled: false,  // Default value
-      density: 5,      // Default value
-      angle: 45,       // Default value
-      lineWidth: 1     // Default value
-    };
-    
-    // Apply cross-hatching if enabled
-    const finalOutput = this.applyCrossHatching(
-      vectorResult, 
-      crossHatchingSettings
-    );
-    
-    return finalOutput;
+    // Return the vector output directly - cross-hatching is now handled by the strategy
+    return vectorResult.vectorOutput;
   }
 }

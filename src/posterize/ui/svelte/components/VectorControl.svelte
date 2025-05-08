@@ -42,6 +42,8 @@
   let crossHatchingEnabled = false;
   let crossHatchingDensity = 5;
   let crossHatchingAngle = 45;
+  let outlineRegions = true; // Default to true for outlining regions
+  let penWidth = 1.5; // Default pen width in pixels
   let debounceTimer: number | null = null;
   const debounceDelay = 500; // ms
   
@@ -108,6 +110,9 @@
       crossHatchingEnabled = $crossHatchingSettings.enabled;
       crossHatchingDensity = $crossHatchingSettings.density;
       crossHatchingAngle = $crossHatchingSettings.angle;
+      // Load new settings if they exist, otherwise use defaults
+      outlineRegions = $crossHatchingSettings.outlineRegions !== undefined ? $crossHatchingSettings.outlineRegions : true;
+      penWidth = $crossHatchingSettings.lineWidth || 1.5;
     }
     
     // Update vector preview
@@ -245,6 +250,30 @@
     updateVectorPreview();
   }
   
+  // Update outline regions setting
+  function updateOutlineRegions(value: boolean) {
+    // Update the state service
+    const state = stateService.getDefaultState();
+    if (state.crossHatchingSettings) {
+      state.crossHatchingSettings.outlineRegions = value;
+      stateService.saveState(state);
+    }
+    
+    updateVectorPreview();
+  }
+  
+  // Update pen width setting
+  function updatePenWidth(value: number) {
+    // Update the state service
+    const state = stateService.getDefaultState();
+    if (state.crossHatchingSettings) {
+      state.crossHatchingSettings.lineWidth = value;
+      stateService.saveState(state);
+    }
+    
+    updateVectorPreview();
+  }
+  
   // Show or hide all layers
   function setAllLayersVisibility(visible: boolean) {
     vectorService.setAllLayersVisibility(visible);
@@ -328,7 +357,15 @@
         curveSmoothing: existingSettings.curveSmoothing || 1,
         exportLayers: true,
         // CRITICAL: Always ensure the current strategy is saved
-        strategy: selectedStrategy
+        strategy: selectedStrategy,
+        // Include current cross-hatching settings
+        crossHatchingSettings: {
+          enabled: crossHatchingEnabled,
+          density: crossHatchingDensity,
+          angle: crossHatchingAngle,
+          lineWidth: penWidth,
+          outlineRegions: outlineRegions
+        }
       };
       
       // Debug log to verify strategy is being properly saved
@@ -618,6 +655,37 @@
           />
           <span class="value-display">{crossHatchingAngle}°</span>
         </div>
+      </div>
+      
+      <!-- Pen width slider -->
+      <div class="control-group">
+        <label for="penWidth">Pen Width:</label>
+        <div class="slider-container">
+          <input 
+            type="range" 
+            id="penWidth" 
+            min="0.5" 
+            max="5" 
+            step="0.1" 
+            value={penWidth}
+            on:input={(e) => updatePenWidth(parseFloat(e.currentTarget.value))}
+          />
+          <span class="value-display">{penWidth.toFixed(1)}px</span>
+        </div>
+      </div>
+      
+      <!-- Outline regions checkbox -->
+      <div class="control-group">
+        <label for="outlineRegions">&nbsp;</label>
+        <label class="checkbox-label">
+          <input 
+            type="checkbox" 
+            id="outlineRegions"
+            checked={outlineRegions}
+            on:change={(e) => updateOutlineRegions(e.currentTarget.checked)}
+          />
+          Outline Regions
+        </label>
       </div>
     </div>
   {/if}

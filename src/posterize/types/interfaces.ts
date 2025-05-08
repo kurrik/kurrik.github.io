@@ -96,6 +96,7 @@ export interface CrossHatchingSettings {
   density: number;
   angle: number;
   lineWidth: number;
+  outlineRegions: boolean;
 }
 
 // ----- Application DTOs -----
@@ -166,7 +167,8 @@ export interface ICrossHatchingService {
 export interface IImageProcessingService {
   processImage(imageData: ImageData, settings: PosterizeSettings): ImageProcessingResult;
   generateVector(result: ImageProcessingResult, settings: VectorSettings): VectorConversionResult;
-  applyCrossHatching(vectorResult: VectorConversionResult, settings: CrossHatchingSettings): VectorOutput;
+  // Cross-hatching is now handled directly by the pen drawing strategy
+  // following DDD principles
 }
 
 export interface IStateManagementService {
