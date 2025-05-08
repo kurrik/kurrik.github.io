@@ -22,8 +22,21 @@ export class CrossHatchingService implements ICrossHatchingService {
     settings: CrossHatchingSettings
   ): VectorOutput {
     console.log('CROSS-HATCHING DEBUG: Applying cross-hatching with settings:', settings);
+    console.log('CROSS-HATCHING DEBUG: lineWidth type:', typeof settings.lineWidth, 'value:', settings.lineWidth);
+    console.log('CROSS-HATCHING DEBUG: outlineRegions type:', typeof settings.outlineRegions, 'value:', settings.outlineRegions);
     
-    if (!settings.enabled) {
+    // Ensure settings are properly typed
+    const validatedSettings = {
+      ...settings,
+      // Ensure lineWidth is a number
+      lineWidth: typeof settings.lineWidth === 'string' ? parseFloat(settings.lineWidth) : Number(settings.lineWidth),
+      // Ensure outlineRegions is a boolean
+      outlineRegions: settings.outlineRegions === true || (typeof settings.outlineRegions === 'string' && settings.outlineRegions === 'true')
+    };
+    
+    console.log('CROSS-HATCHING DEBUG: Using validated settings:', validatedSettings);
+    
+    if (!validatedSettings.enabled) {
       console.log('CROSS-HATCHING DEBUG: Cross-hatching disabled, returning original output');
       return vectorOutput;
     }
@@ -52,20 +65,23 @@ export class CrossHatchingService implements ICrossHatchingService {
       // Process each path in the layer
       layer.paths.forEach(path => {
         // If outlineRegions is enabled, add the original path as an outline with no fill
-        if (settings.outlineRegions) {
+        if (validatedSettings.outlineRegions) {
+          console.log('CROSS-HATCHING DEBUG: Adding outline with lineWidth:', validatedSettings.lineWidth);
           crossHatchedPaths.push({
             d: path.d,
             fill: 'none',
             stroke: '#000000',  // Always use black for pen plotting
-            strokeWidth: settings.lineWidth.toString() // Use the pen width setting
+            strokeWidth: validatedSettings.lineWidth.toString() // Use the pen width setting
           });
+        } else {
+          console.log('CROSS-HATCHING DEBUG: Skipping outline because outlineRegions is:', validatedSettings.outlineRegions);
         }
         
         // Add cross-hatching lines within the path
         const hatchingPatterns = this.generateCrossHatchingForPath(
           path,
           toneLevel,
-          settings,
+          validatedSettings,  // Use validated settings
           width,
           height
         );
@@ -99,6 +115,7 @@ export class CrossHatchingService implements ICrossHatchingService {
     width: number,
     height: number
   ): VectorPathData[] {
+    console.log('CROSS-HATCHING DEBUG: Generating patterns with lineWidth:', settings.lineWidth);
     const hatchingPaths: VectorPathData[] = [];
     
     // Base spacing between lines (in pixels)
@@ -164,6 +181,7 @@ export class CrossHatchingService implements ICrossHatchingService {
     lineWidth: number,
     clipPath: string
   ): VectorPathData {
+    console.log('CROSS-HATCHING DEBUG: Generating hatching lines with lineWidth:', lineWidth);
     // Calculate diagonal length to ensure lines span the entire area
     const diagonalLength = Math.sqrt(width * width + height * height);
     
@@ -199,11 +217,18 @@ export class CrossHatchingService implements ICrossHatchingService {
     }
     
     // Combine all lines into a single path
+    console.log('CROSS-HATCHING DEBUG: Final line width being used:', lineWidth, 'type:', typeof lineWidth);
+    
+    // SVG stroke-width doesn't use px units, it's just a number as a string
+    // Create a properly formatted stroke width value
+    const strokeWidthValue = lineWidth.toString();
+    console.log('CROSS-HATCHING DEBUG: Using stroke width value:', strokeWidthValue);
+    
     return {
       d: lines.join(' '),
       fill: 'none',
       stroke: '#000000', // Always use black for pen plotting
-      strokeWidth: lineWidth.toString(),
+      strokeWidth: strokeWidthValue, // Pure number as string without px units
       // Note: In actual implementation, we would use clip-path with the shape path
     };
   }

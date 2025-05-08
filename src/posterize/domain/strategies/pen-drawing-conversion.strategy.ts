@@ -113,11 +113,18 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
           
           // Add path with pen drawing styling (no fill, black stroke)
           // Use lineWidth from cross-hatching settings if available
+          // Format the line width as explicit pixel value for SVG
+          const penWidth = typeof crossHatchingSettings.lineWidth === 'number' ? 
+            crossHatchingSettings.lineWidth : 
+            parseFloat(String(crossHatchingSettings.lineWidth));
+          
+          console.log('PEN STRATEGY: Applying lineWidth:', penWidth, 'px');
+          
           paths.push({
             d: pathData,
             fill: 'none',             // No fill for pen drawing
             stroke: '#000000',        // Black stroke
-            strokeWidth: crossHatchingSettings.lineWidth.toString() // Use defined pen width
+            strokeWidth: penWidth.toString()  // SVG requires string values
           });
           
           contour.delete();
@@ -147,8 +154,23 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
       
       // If cross-hatching is enabled, apply it using the cross-hatching service
       if (crossHatchingSettings.enabled) {
-        console.log('PEN DRAWING STRATEGY: Applying cross-hatching with settings:', crossHatchingSettings);
-        return this.crossHatchingService.applyToVectorOutput(vectorOutput, crossHatchingSettings);
+        console.log('PEN DRAWING STRATEGY: Applying cross-hatching with settings:', JSON.stringify(crossHatchingSettings, null, 2));
+        console.log('PEN DRAWING SETTINGS - lineWidth:', crossHatchingSettings.lineWidth, 'outlineRegions:', crossHatchingSettings.outlineRegions);
+        
+        // Make sure settings have the right types before passing to service
+        const validatedSettings = {
+          ...crossHatchingSettings,
+          // Ensure lineWidth is a number
+          lineWidth: typeof crossHatchingSettings.lineWidth === 'string' 
+            ? parseFloat(crossHatchingSettings.lineWidth) 
+            : crossHatchingSettings.lineWidth,
+          // Ensure outlineRegions is a boolean
+          outlineRegions: !!crossHatchingSettings.outlineRegions
+        };
+        
+        console.log('PEN DRAWING STRATEGY: Using validated settings:', JSON.stringify(validatedSettings, null, 2));
+        const result = this.crossHatchingService.applyToVectorOutput(vectorOutput, validatedSettings);
+        return result;
       } else {
         console.log('PEN DRAWING STRATEGY: Cross-hatching disabled, returning regular output');
         return vectorOutput;

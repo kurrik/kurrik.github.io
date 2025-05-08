@@ -264,6 +264,11 @@
   
   // Update pen width setting
   function updatePenWidth(value: number) {
+    // Update the local component variable first
+    penWidth = value;
+    
+    console.log('Updating pen width to:', penWidth);
+    
     // Update the state service
     const state = stateService.getDefaultState();
     if (state.crossHatchingSettings) {
@@ -367,6 +372,15 @@
           outlineRegions: outlineRegions
         }
       };
+      
+      // Debug log to verify penWidth and outlineRegions
+      console.log('VECTOR CONTROLS DEBUG: Cross-hatching settings being used:', {
+        enabled: crossHatchingEnabled,
+        density: crossHatchingDensity,
+        angle: crossHatchingAngle,
+        lineWidth: penWidth,
+        outlineRegions: outlineRegions
+      });
       
       // Debug log to verify strategy is being properly saved
       console.log('Saving vector settings with strategy:', vectorSettings.strategy);
