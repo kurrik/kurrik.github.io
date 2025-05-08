@@ -16,7 +16,7 @@ import {
 import {
   StencilConversionStrategy,
   PenDrawingConversionStrategy
-} from './strategies/vector-conversion-strategies';
+} from '../../domain/strategies';
 
 export class VectorConversionService implements IVectorConversionService {
   private strategies: Map<StrategyType, IVectorConversionStrategy> = new Map();
