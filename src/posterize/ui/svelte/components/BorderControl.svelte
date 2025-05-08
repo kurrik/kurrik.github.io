@@ -7,6 +7,7 @@
    * Replaces the BorderControlManager while maintaining DDD principles.
    */
   import { onMount, getContext } from 'svelte';
+  import { get } from 'svelte/store';
   import { posterizeState, posterizeSettings, borderSettings } from '../stores/posterizeState';
   import { StateManagementService } from '../../../application/services/state-management-service';
   
@@ -25,10 +26,10 @@
   function updateBorderEnabled(value: boolean) {
     enabled = value;
     
-    // Get current settings
-    const currentSettings = { ...stateService.getDefaultState().posterizeSettings };
+    // Get current settings from the store, not default values
+    const currentSettings = get(posterizeSettings);
     
-    // Create updated settings
+    // Create updated settings while preserving all other settings
     const updatedSettings = {
       ...currentSettings,
       borderSettings: {
@@ -51,10 +52,10 @@
   function updateBorderThickness(value: number) {
     thickness = value;
     
-    // Get current settings
-    const currentSettings = { ...stateService.getDefaultState().posterizeSettings };
+    // Get current settings from the store, not default values
+    const currentSettings = get(posterizeSettings);
     
-    // Create updated settings
+    // Create updated settings while preserving all other settings
     const updatedSettings = {
       ...currentSettings,
       borderSettings: {

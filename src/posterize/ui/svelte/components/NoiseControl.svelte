@@ -7,6 +7,7 @@
    * Replaces the NoiseControlManager while maintaining DDD principles.
    */
   import { onMount, getContext } from 'svelte';
+  import { get } from 'svelte/store';
   import { posterizeState, posterizeSettings, noiseSettings } from '../stores/posterizeState';
   import { StateManagementService } from '../../../application/services/state-management-service';
   
@@ -25,10 +26,10 @@
   function updateNoiseEnabled(value: boolean) {
     enabled = value;
     
-    // Get current settings
-    const currentSettings = { ...stateService.getDefaultState().posterizeSettings };
+    // Get current settings from the store
+    const currentSettings = get(posterizeSettings);
     
-    // Create updated settings
+    // Create updated settings while preserving all other settings
     const updatedSettings = {
       ...currentSettings,
       noiseSettings: {
@@ -51,10 +52,10 @@
   function updateMinRegionSize(value: number) {
     minRegionSize = value;
     
-    // Get current settings
-    const currentSettings = { ...stateService.getDefaultState().posterizeSettings };
+    // Get current settings from the store
+    const currentSettings = get(posterizeSettings);
     
-    // Create updated settings
+    // Create updated settings while preserving all other settings
     const updatedSettings = {
       ...currentSettings,
       noiseSettings: {

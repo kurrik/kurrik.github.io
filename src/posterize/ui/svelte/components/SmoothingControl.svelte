@@ -7,6 +7,7 @@
    * Replaces the SmoothingControlManager while maintaining DDD principles.
    */
   import { onMount, getContext } from 'svelte';
+  import { get } from 'svelte/store';
   import { posterizeState, posterizeSettings, smoothSettings } from '../stores/posterizeState';
   import { StateManagementService } from '../../../application/services/state-management-service';
   
@@ -25,10 +26,10 @@
   function updateSmoothingEnabled(value: boolean) {
     enabled = value;
     
-    // Get current settings
-    const currentSettings = { ...stateService.getDefaultState().posterizeSettings };
+    // Get current settings from the store, not default values
+    const currentSettings = get(posterizeSettings);
     
-    // Create updated settings
+    // Create updated settings while preserving all other settings
     const updatedSettings = {
       ...currentSettings,
       smoothSettings: {
@@ -51,10 +52,10 @@
   function updateSmoothingStrength(value: number) {
     strength = value;
     
-    // Get current settings
-    const currentSettings = { ...stateService.getDefaultState().posterizeSettings };
+    // Get current settings from the store, not default values
+    const currentSettings = get(posterizeSettings);
     
-    // Create updated settings
+    // Create updated settings while preserving all other settings
     const updatedSettings = {
       ...currentSettings,
       smoothSettings: {
