@@ -289,6 +289,13 @@
       // This fixes the layer visibility toggle bug mentioned in the memory
       vectorOutput = vectorService.getVectorOutput();
       
+      // Explicitly dispatch an event for components that might not be using the service subscription
+      const vectorChangedEvent = new CustomEvent('vectorOutput:changed', {
+        detail: vectorOutput
+      });
+      document.dispatchEvent(vectorChangedEvent);
+      console.log('Vector output updated and event dispatched');
+      
       // Render the preview
       renderVectorPreview();
     } catch (error) {

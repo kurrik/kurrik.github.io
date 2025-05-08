@@ -42,17 +42,13 @@
   function updateAspectRatio(value: string) {
     aspectRatio = value as AspectRatioSetting;
     
-    // Update the state
-    $posterizeState = {
-      ...$posterizeState,
+    // Update the state using the store's updatePartialState method
+    posterizeState.updatePartialState({
       cropSettings: {
         ...$posterizeState.cropSettings,
         aspectRatio
       }
-    };
-    
-    // Save state via service
-    stateService.saveState($posterizeState);
+    });
     
     // Reload image with new aspect ratio
     if ($posterizeState.originalImageDataUrl) {
@@ -64,17 +60,13 @@
   function updateCropMode(value: string) {
     cropMode = value as 'crop' | 'fit';
     
-    // Update the state
-    $posterizeState = {
-      ...$posterizeState,
+    // Update the state using the store's updatePartialState method
+    posterizeState.updatePartialState({
       cropSettings: {
         ...$posterizeState.cropSettings,
         mode: cropMode
       }
-    };
-    
-    // Save state via service
-    stateService.saveState($posterizeState);
+    });
     
     // Reload image with new crop mode
     if ($posterizeState.originalImageDataUrl) {
