@@ -49,6 +49,14 @@
   
   // Initialize state on mount
   onMount(() => {
+    // Load saved strategy from state
+    const state = get(posterizeState);
+    if (state && state.vectorSettings && state.vectorSettings.strategy) {
+      selectedStrategy = state.vectorSettings.strategy;
+      // Update service with the loaded strategy
+      vectorConversionService.setActiveStrategy(selectedStrategy);
+      console.log('Loaded strategy from state:', selectedStrategy);
+    }
     // Subscribe to state changes
     const unsubscribeState = posterizeState.subscribe(state => {
       // Update local state based on posterize state
@@ -155,7 +163,35 @@
   function updateStrategy(e: Event) {
     const select = e.target as HTMLSelectElement;
     selectedStrategy = select.value as StrategyType;
+    
+    // Set the active strategy in the service
     vectorConversionService.setActiveStrategy(selectedStrategy);
+    
+    // Save the selected strategy to application state
+    const state = stateService.getDefaultState();
+    if (state) {
+      // Add vectorSettings if it doesn't exist
+      if (!state.vectorSettings) {
+        state.vectorSettings = { 
+          strategy: selectedStrategy,
+          type: selectedStrategy === StrategyType.PEN_DRAWING ? VectorType.OUTLINE : VectorType.FILLED,
+          curveSmoothing: 1,
+          exportLayers: true
+        };
+      } else {
+        // Update just the strategy
+        state.vectorSettings.strategy = selectedStrategy;
+      }
+      
+      // Enable cross-hatching by default for pen drawing
+      if (selectedStrategy === StrategyType.PEN_DRAWING && state.crossHatchingSettings) {
+        state.crossHatchingSettings.enabled = true;
+        crossHatchingEnabled = true;
+      }
+      
+      // Save the updated state
+      stateService.saveState(state);
+    }
     
     // Update the vector preview with the new strategy
     updateVectorPreview();
@@ -274,22 +310,25 @@
       console.log('Image processed successfully, generating vector...');
       
       // Set vector settings based on selected strategy
-      let vectorSettings;
-      if (selectedStrategy === StrategyType.PEN_DRAWING) {
-        // Use unfilled paths for pen drawing strategy
-        vectorSettings = {
-          type: VectorType.OUTLINE,
-          curveSmoothing: 1,
-          exportLayers: true
-        };
-      } else {
-        // Use filled paths for stencil strategy (default)
-        vectorSettings = {
-          type: VectorType.FILLED,
-          curveSmoothing: 1,
-          exportLayers: true
-        };
-      }
+      // Load existing vector settings from state first
+      const existingSettings = state.vectorSettings || {};
+      
+      // Create settings object with strategy-specific properties
+      const vectorSettings = {
+        // Use existing settings as base
+        ...existingSettings,
+        // Update strategy-specific settings
+        type: selectedStrategy === StrategyType.PEN_DRAWING ? VectorType.OUTLINE : VectorType.FILLED,
+        curveSmoothing: existingSettings.curveSmoothing || 1,
+        exportLayers: true,
+        // Save the current strategy
+        strategy: selectedStrategy
+      };
+      
+      // Save these settings back to state
+      const updatedState = {...state};
+      updatedState.vectorSettings = vectorSettings;
+      stateService.saveState(updatedState);
       
       // Generate vector from processed result using the selected strategy
       const vectorResult = imageService.generateVector(

@@ -88,6 +88,7 @@ export interface VectorSettings {
   curveSmoothing: number;
   exportLayers: boolean;
   crossHatchingSettings?: CrossHatchingSettings;
+  strategy?: StrategyType; // Which conversion strategy to use
 }
 
 export interface CrossHatchingSettings {
