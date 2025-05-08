@@ -22,6 +22,22 @@ export class StateManagementService implements IStateManagementService {
    */
   saveState(state: AppState): void {
     try {
+      // Check if there's a reset lock in localStorage
+      const resetLock = localStorage.getItem('posterizeResetLock');
+      if (resetLock) {
+        const lockTime = parseInt(resetLock, 10);
+        const now = Date.now();
+        
+        // If the reset happened less than 5 seconds ago, don't save
+        if (now - lockTime < 5000) {
+          console.log('Reset lock active, skipping state save');
+          return;
+        } else {
+          // Lock expired, remove it
+          localStorage.removeItem('posterizeResetLock');
+        }
+      }
+      
       this.storageAdapter.save(this.STORAGE_KEY, state);
     } catch (error) {
       console.error('Failed to save application state:', error);

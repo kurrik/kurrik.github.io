@@ -17,19 +17,33 @@
   const services = getContext<Services>('services');
   const { stateService } = services;
 
-  // Function to reset all settings to defaults and clear the image
+  // Function to completely reset the application
   function resetAllSettings() {
-    if (confirm('Are you sure you want to reset all settings and clear the current image? This cannot be undone.')) {
-      // Get default state
-      const defaultState = stateService.getDefaultState();
+    if (confirm('Are you sure you want to reset all settings, clear the current image, and clear all saved settings? This cannot be undone.')) {
+      // Force a full page reload with a special URL parameter to indicate reset
+      window.location.href = window.location.pathname + '?reset=' + Date.now();
+    }
+  }
+  
+  // Initialize the reset handler on mount
+  onMount(() => {
+    // Check if we're loading after a reset
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('reset')) {
+      console.log('Detected reset parameter, clearing storage...');
       
-      // Unlike before, we don't keep the current image URL
-      // defaultState.originalImageDataUrl is already undefined in the default state
+      // Clear localStorage completely for the app
+      const STORAGE_KEY = 'posterizeAppState';
+      localStorage.removeItem(STORAGE_KEY);
       
-      // Update the store with default values, including clearing the image
-      posterizeState.updatePartialState(defaultState);
+      // Set a reset lock to prevent auto-saving for 5 seconds
+      localStorage.setItem('posterizeResetLock', Date.now().toString());
       
-      // Clear any canvas elements that might still be showing the image
+      // Remove the reset parameter from the URL without a page reload
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+      
+      // Clear any canvas elements
       const canvasElements = document.querySelectorAll('canvas');
       canvasElements.forEach(canvas => {
         const ctx = canvas.getContext('2d');
@@ -38,27 +52,27 @@
         }
       });
       
-      // Show the dropzone again (if it was hidden)
+      // Show the dropzone
       const dropzone = document.querySelector('.dropzone');
       if (dropzone) {
         dropzone.classList.remove('hidden');
       }
       
-      // Hide any vector previews
+      // Hide vector previews
       const vectorPreview = document.querySelector('.vector-preview');
       if (vectorPreview && vectorPreview instanceof HTMLElement) {
         vectorPreview.innerHTML = '';
       }
       
-      // Dispatch an event to notify that state has been reset
+      // Notify the app that state has been reset
       const stateResetEvent = new CustomEvent('posterize:stateReset', {
-        detail: { clearedImage: true }
+        detail: { clearedImage: true, clearedStorage: true }
       });
       document.dispatchEvent(stateResetEvent);
       
-      console.log('All settings reset to defaults and image cleared');
+      console.log('Reset complete - all settings reset, image cleared, and localStorage cleared');
     }
-  }
+  });
 </script>
 
 <div class="reset-control">
