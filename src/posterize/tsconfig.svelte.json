@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "isolatedModules": true,
+    "moduleResolution": "node",
+    "types": ["svelte"],
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["**/*.ts", "**/*.svelte"],
+  "exclude": ["node_modules", "../../dist", "**/vite.config.ts"]
+}
