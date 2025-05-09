@@ -163,10 +163,12 @@ export class StencilConversionStrategy extends BaseVectorConversionStrategy {
           return polygonsIntersect(pointsA, pointsB);
         };
 
-        // Recursive region collector to properly handle subregions
-        let regionGroups: string[][] = [];
-        let regionBoxes: any[][] = [];
-        let regionIndexes: number[][] = []; // Store contour indices to retrieve contours later
+        // Storage for regions - each item is a group of contours that don't intersect
+        // We'll output each group as a separate layer
+        const regionGroups: string[][] = [];
+        const regionBoxes: any[][] = [];
+        const regionTypes: string[][] = []; // Track region types (outline, hole, island)
+        const regionIndexes: number[][] = []; // Store contour indices to retrieve contours later
         
         const collectRegions = (idx: number, depth = 0) => {
           if (idx < 0 || idx >= nContours) return;
@@ -176,6 +178,8 @@ export class StencilConversionStrategy extends BaseVectorConversionStrategy {
             const cnt = contours.get(idx);
             const path = this.contourToPath(cnt);
             const bbox = getBoundingBox(cnt);
+            // depth 0 = outline, deeper even depths = islands
+            const regionType = depth === 0 ? 'outline' : 'island';
             let merged = false;
             
             // Try to merge with an existing group
@@ -204,6 +208,11 @@ export class StencilConversionStrategy extends BaseVectorConversionStrategy {
                 regionGroups[g].push(path);
                 groupBoxes.push(bbox);
                 regionIndexes[g].push(idx);
+                // Store region type
+                if (!regionTypes[g]) {
+                  regionTypes[g] = [];
+                }
+                regionTypes[g].push(regionType);
                 merged = true;
                 break;
               }
@@ -214,6 +223,7 @@ export class StencilConversionStrategy extends BaseVectorConversionStrategy {
               regionGroups.push([path]);
               regionBoxes.push([bbox]);
               regionIndexes.push([idx]);
+              regionTypes.push([regionType]);
             }
             
             cnt.delete();
@@ -233,15 +243,39 @@ export class StencilConversionStrategy extends BaseVectorConversionStrategy {
         }
         
         // Output each group as a separate layer
-        for (let group of regionGroups) {
+        for (let i = 0; i < regionGroups.length; i++) {
+          const group = regionGroups[i];
+          const types = regionTypes[i] || [];
           const pathData = group.join(' ');
+          
+          // Determine the dominant region type for this group
+          let dominantType: 'outline' | 'hole' | 'island' = 'outline'; // Default to outline
+          if (types.length > 0) {
+            // Count types
+            const typeCounts: Record<string, number> = {};
+            types.forEach(type => {
+              typeCounts[type] = (typeCounts[type] || 0) + 1;
+            });
+            
+            // Find most common type
+            let maxCount = 0;
+            Object.entries(typeCounts).forEach(([type, count]) => {
+              if (count > maxCount) {
+                maxCount = count;
+                // Type assertion to ensure type safety
+                dominantType = type as 'outline' | 'hole' | 'island';
+              }
+            });
+          }
+          
           layers.push({
             id: `layer-${bucket}-${layers.length}`,
             paths: [{
               d: pathData,
-              fill: color,
+              fill: settings.type === VectorType.OUTLINE ? 'none' : color,
               stroke: '#333',
-              strokeWidth: borderThickness.toString()
+              strokeWidth: settings.type === VectorType.OUTLINE ? borderThickness.toString() : '1',
+              regionType: dominantType
             }],
             visible: true
           });

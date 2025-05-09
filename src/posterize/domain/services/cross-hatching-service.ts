@@ -94,56 +94,69 @@ export class CrossHatchingService implements ICrossHatchingService {
         }
 
         // Build a compound region handling holes and islands
-        // In SVG path data, even indices (0, 2, 4...) are typically outlines
-        // and odd indices (1, 3, 5...) are holes. Islands within holes would be at indices (2, 6, 10...)
+        // Process paths based on regionType instead of relying on array indices
+        // - Outline: base shape
+        // - Hole: subtract from base shape
+        // - Island: add back to the shape inside holes
         let compoundRegion: Flatten.Polygon | null = null;
 
         console.log(`CROSS-HATCHING: Starting to process ${polygons.length} polygons for compound region`);
+        console.log(`CROSS-HATCHING: Using region types from path data`);
 
-        // Process polygons based on even/odd to handle holes and islands
-        for (let i = 0; i < polygons.length; i++) {
-          console.log(`CROSS-HATCHING: Processing polygon ${i}`);
-
-          if (i === 0) {
-            // First polygon is always the main outline
-            compoundRegion = polygons[i];
-            console.log('CROSS-HATCHING: Set first polygon as base region');
-          } else if (i % 2 === 1) {
-            // Odd indices (1, 3, 5...) are holes - subtract them
-            if (compoundRegion) {
+        // First process all outlines and create a base region
+        for (let i = 0; i < layer.paths.length; i++) {
+          if (layer.paths[i].regionType === 'outline') {
+            console.log(`CROSS-HATCHING: Processing outline polygon at index ${i}`);
+            if (!compoundRegion) {
+              compoundRegion = polygons[i];
+              console.log('CROSS-HATCHING: Set first outline polygon as base region');
+            } else {
+              // Unify with any other outlines
               try {
-                console.log(`CROSS-HATCHING: Subtracting hole at index ${i}`);
-                const originalRegion: Flatten.Polygon = compoundRegion;
-                compoundRegion = BooleanOperations.subtract(compoundRegion, polygons[i]);
-                console.log('CROSS-HATCHING: Hole subtraction completed');
-
-                // Check if the operation was successful by comparing some property
-                // If unchanged, the operation likely failed silently
-                console.log('CROSS-HATCHING: Checking if hole subtraction was successful');
-                if (compoundRegion === originalRegion) {
-                  console.warn('CROSS-HATCHING: Hole subtraction returned same object - likely failed');
-                }
-              } catch (error) {
-                console.error('CROSS-HATCHING: Boolean subtract operation failed', error);
-              }
-            }
-          } else {
-            // Even indices (2, 4, 6...) are islands inside holes - union them back
-            if (compoundRegion) {
-              try {
-                console.log(`CROSS-HATCHING: Adding island at index ${i}`);
                 const originalRegion: Flatten.Polygon = compoundRegion;
                 compoundRegion = BooleanOperations.unify(compoundRegion, polygons[i]);
-                console.log('CROSS-HATCHING: Island union completed');
-
-                // Check if the operation was successful
-                console.log('CROSS-HATCHING: Checking if island union was successful');
-                if (compoundRegion === originalRegion) {
-                  console.warn('CROSS-HATCHING: Island union returned same object - likely failed');
-                }
+                console.log('CROSS-HATCHING: Unifying additional outline');
               } catch (error) {
                 console.error('CROSS-HATCHING: Boolean union operation failed', error);
               }
+            }
+          }
+        }
+
+        // Next subtract all holes
+        for (let i = 0; i < layer.paths.length; i++) {
+          if (layer.paths[i].regionType === 'hole' && compoundRegion) {
+            console.log(`CROSS-HATCHING: Processing hole polygon at index ${i}`);
+            try {
+              const originalRegion: Flatten.Polygon = compoundRegion;
+              compoundRegion = BooleanOperations.subtract(compoundRegion, polygons[i]);
+              console.log('CROSS-HATCHING: Hole subtraction completed');
+
+              // Check if the operation was successful
+              if (compoundRegion === originalRegion) {
+                console.warn('CROSS-HATCHING: Hole subtraction returned same object - likely failed');
+              }
+            } catch (error) {
+              console.error('CROSS-HATCHING: Boolean subtract operation failed', error);
+            }
+          }
+        }
+
+        // Finally add back all islands
+        for (let i = 0; i < layer.paths.length; i++) {
+          if (layer.paths[i].regionType === 'island' && compoundRegion) {
+            console.log(`CROSS-HATCHING: Processing island polygon at index ${i}`);
+            try {
+              const originalRegion: Flatten.Polygon = compoundRegion;
+              compoundRegion = BooleanOperations.unify(compoundRegion, polygons[i]);
+              console.log('CROSS-HATCHING: Island union completed');
+
+              // Check if the operation was successful
+              if (compoundRegion === originalRegion) {
+                console.warn('CROSS-HATCHING: Island union returned same object - likely failed');
+              }
+            } catch (error) {
+              console.error('CROSS-HATCHING: Boolean union operation failed', error);
             }
           }
         }
