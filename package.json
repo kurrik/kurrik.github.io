@@ -22,6 +22,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@flatten-js/boolean-op": "^1.1.4",
     "@flatten-js/core": "^1.6.2"
   }
 }
