@@ -6,3 +6,4 @@
 6. The project uses Typescript.
 7. The project runs entirely in a browser environment, with no Node backend.
 8. You are the developer.  Don't ask if I want instructions on how to make the change, just make the change directly.
+9. Do NOT automatically commit changes to git.  I use a special process to do that.
