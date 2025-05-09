@@ -78,12 +78,40 @@ export class CrossHatchingService implements ICrossHatchingService {
       if (validatedSettings.enabled && layerWithPathData.pathData && layerWithPathData.pathData.length > 0) {
         console.log(`CROSS-HATCHING: Processing ${layerWithPathData.pathData.length} path data entries for cross-hatching`);
 
-        // Parse all paths to polygons
+        // Parse all paths to polygons and track region types
         const polygons: Flatten.Polygon[] = [];
-        for (const pathData of layerWithPathData.pathData) {
-          const polygon = this.parseSvgPathToPolygon(pathData);
-          if (polygon) {
-            polygons.push(polygon);
+        const regionTypes: ('outline' | 'hole' | 'island')[] = [];
+          
+        // First process paths with explicit region types
+        for (let i = 0; i < layer.paths.length; i++) {
+          const path = layer.paths[i];
+          if (path.d && path.regionType) {
+            const polygon = this.parseSvgPathToPolygon(path.d);
+            if (polygon) {
+              polygons.push(polygon);
+              regionTypes.push(path.regionType);
+              console.log(`CROSS-HATCHING: Parsed polygon with region type: ${path.regionType}`);
+            }
+          }
+        }
+        
+        // If no explicitly typed regions found, fallback to pathData and use index conventions
+        if (polygons.length === 0 && layerWithPathData.pathData && layerWithPathData.pathData.length > 0) {
+          console.log('CROSS-HATCHING: No explicit region types found, using index-based conventions');
+          for (let i = 0; i < layerWithPathData.pathData.length; i++) {
+            const pathData = layerWithPathData.pathData[i];
+            const polygon = this.parseSvgPathToPolygon(pathData);
+            if (polygon) {
+              polygons.push(polygon);
+              // Fall back to convention: index 0 = outline, odd indices = holes, even indices > 0 = islands
+              if (i === 0) {
+                regionTypes.push('outline');
+              } else if (i % 2 === 1) {
+                regionTypes.push('hole');
+              } else {
+                regionTypes.push('island');
+              }
+            }
           }
         }
 
@@ -94,18 +122,15 @@ export class CrossHatchingService implements ICrossHatchingService {
         }
 
         // Build a compound region handling holes and islands
-        // Process paths based on regionType instead of relying on array indices
-        // - Outline: base shape
-        // - Hole: subtract from base shape
-        // - Island: add back to the shape inside holes
+        // Process polygons based on their region types (outline, hole, island)
+        // This approach is more explicit than relying on array indices
         let compoundRegion: Flatten.Polygon | null = null;
 
         console.log(`CROSS-HATCHING: Starting to process ${polygons.length} polygons for compound region`);
-        console.log(`CROSS-HATCHING: Using region types from path data`);
 
-        // First process all outlines and create a base region
-        for (let i = 0; i < layer.paths.length; i++) {
-          if (layer.paths[i].regionType === 'outline') {
+        // First process all outlines to create the base region
+        for (let i = 0; i < polygons.length; i++) {
+          if (regionTypes[i] === 'outline') {
             console.log(`CROSS-HATCHING: Processing outline polygon at index ${i}`);
             if (!compoundRegion) {
               compoundRegion = polygons[i];
@@ -123,9 +148,9 @@ export class CrossHatchingService implements ICrossHatchingService {
           }
         }
 
-        // Next subtract all holes
-        for (let i = 0; i < layer.paths.length; i++) {
-          if (layer.paths[i].regionType === 'hole' && compoundRegion) {
+        // Next subtract all holes from the base region
+        for (let i = 0; i < polygons.length; i++) {
+          if (regionTypes[i] === 'hole' && compoundRegion) {
             console.log(`CROSS-HATCHING: Processing hole polygon at index ${i}`);
             try {
               const originalRegion: Flatten.Polygon = compoundRegion;
@@ -142,9 +167,9 @@ export class CrossHatchingService implements ICrossHatchingService {
           }
         }
 
-        // Finally add back all islands
-        for (let i = 0; i < layer.paths.length; i++) {
-          if (layer.paths[i].regionType === 'island' && compoundRegion) {
+        // Finally add back all islands that should appear inside holes
+        for (let i = 0; i < polygons.length; i++) {
+          if (regionTypes[i] === 'island' && compoundRegion) {
             console.log(`CROSS-HATCHING: Processing island polygon at index ${i}`);
             try {
               const originalRegion: Flatten.Polygon = compoundRegion;
