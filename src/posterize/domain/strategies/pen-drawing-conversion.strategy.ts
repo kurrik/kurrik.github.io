@@ -102,15 +102,74 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
         const method = 2; // CV_CHAIN_APPROX_SIMPLE = 2
         cv.findContours(mask, contours, hierarchy, mode, method);
         
-        // Store path data for processing later, without adding placeholder paths to the output
+        // Store path data and region types for processing later
         const contourPathData: string[] = [];
+        const regionTypes: ('outline' | 'hole' | 'island')[] = [];
         
-        // Process each contour
-        for (let i = 0; i < contours.size(); i++) {
+        // Build a tree structure from the hierarchy data
+        // The hierarchy array contains [next, previous, child, parent] indices for each contour
+        type ContourNode = {
+          index: number;
+          depth: number;
+          children: number[];
+          parent: number;
+        };
+        
+        const contourTree: ContourNode[] = [];
+        const nContours = contours.size();
+        
+        // Initialize the contour tree
+        for (let i = 0; i < nContours; i++) {
+          contourTree.push({
+            index: i,
+            depth: 0,
+            children: [],
+            parent: -1
+          });
+        }
+        
+        // Populate the tree with hierarchy information
+        // Hierarchy data in OpenCV.js is stored as Int32Array with 4 values per contour
+        // Format: [next_contour, previous_contour, first_child, parent]
+        const hierarchyData = hierarchy.data32S;
+        
+        for (let i = 0; i < nContours; i++) {
+          // Hierarchy values are stored in groups of 4 integers per contour
+          const baseIdx = i * 4;
+          const next = hierarchyData[baseIdx];
+          const prev = hierarchyData[baseIdx + 1];
+          const firstChild = hierarchyData[baseIdx + 2];
+          const parent = hierarchyData[baseIdx + 3];
+          
+          // Update parent info
+          contourTree[i].parent = parent;
+          
+          // Update children list of the parent
+          if (parent >= 0) {
+            contourTree[parent].children.push(i);
+          }
+        }
+        
+        // Compute depth for each node
+        const computeDepth = (nodeIndex: number, depth: number) => {
+          contourTree[nodeIndex].depth = depth;
+          for (const childIndex of contourTree[nodeIndex].children) {
+            computeDepth(childIndex, depth + 1);
+          }
+        };
+        
+        // Start from all root nodes (no parent)
+        for (let i = 0; i < nContours; i++) {
+          if (contourTree[i].parent === -1) {
+            computeDepth(i, 0);
+          }
+        }
+        
+        // Process each contour with its hierarchy information
+        for (let i = 0; i < nContours; i++) {
           const contour = contours.get(i);
           
           // Skip small contours - use approximation since contourArea might not be available
-          // Count points as a rough estimation of contour size
           if (contour.data32S && contour.data32S.length < 10) {
             contour.delete();
             continue;
@@ -119,9 +178,23 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
           // Convert contour to path data
           const pathData = this.contourToPath(contour);
           
-          // Store the path data for later processing by services
-          // Don't add any paths to the output at this stage
+          // Determine region type based on depth
+          // Even depths are shapes (0 = outline, 2,4,6... = islands)
+          // Odd depths are holes (1,3,5...)
+          let regionType: 'outline' | 'hole' | 'island';
+          const depth = contourTree[i].depth;
+          
+          if (depth % 2 === 0) {
+            // Even depth: outline or island
+            regionType = depth === 0 ? 'outline' : 'island';
+          } else {
+            // Odd depth: hole
+            regionType = 'hole';
+          }
+          
+          // Store the path data and region type
           contourPathData.push(pathData);
+          regionTypes.push(regionType);
           
           contour.delete();
         }
@@ -129,15 +202,27 @@ export class PenDrawingConversionStrategy extends BaseVectorConversionStrategy {
         // Log the number of paths in this bucket
         console.log(`PEN STRATEGY: Bucket ${bucket}: ${contourPathData.length} paths`);
         
-        // Store the path data for this bucket - initially with empty paths
-        // The actual paths will be added by the outline and cross-hatching services
+        // Create paths with region type information for this bucket
+        const typedPaths: VectorPathData[] = [];
+        
+        for (let i = 0; i < contourPathData.length; i++) {
+          typedPaths.push({
+            d: contourPathData[i],
+            fill: 'none', // No fill for pen drawing
+            stroke: 'none', // No stroke yet - will be added by outline service
+            strokeWidth: '0',
+            regionType: regionTypes[i]
+          });
+        }
+        
+        // Store the layer with paths that have region types
         layers.push({
           id: `pen-layer-${bucket}`,
-          paths: [], // Start with empty paths - services will add them
+          paths: typedPaths, // Include paths with region types
           visible: true,
-          // Store bucket data as custom property for the services to use
+          // Store bucket data and path data for services to use
           bucket: bucket,
-          pathData: contourPathData // Store the path data for services to use
+          pathData: contourPathData
         } as VectorLayer & { bucket: number, pathData: string[] }); // Use type assertion
         
         // Log the layer that's being added

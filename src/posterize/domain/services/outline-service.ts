@@ -45,13 +45,46 @@ export class OutlineService {
       // Create a new layer with outlined paths
       const outlinedPaths: VectorPathData[] = [];
       
-      // Use the stored path data if available, otherwise use existing paths
-      if (layerWithPathData.pathData && layerWithPathData.pathData.length > 0) {
+      // First check if we have paths with region types already
+      if (layer.paths && layer.paths.length > 0 && layer.paths.every(path => path.regionType)) {
+        console.log('OUTLINE SERVICE: Using existing paths with region types');
+        
+        // Use the paths' existing region types
+        layer.paths.forEach(path => {
+          // Determine stroke color based on region type
+          let strokeColor: string;
+          
+          switch (path.regionType) {
+            case 'hole':
+              strokeColor = '#FF0000'; // Red for holes
+              break;
+            case 'island':
+              strokeColor = '#00FF00'; // Green for islands
+              break;
+            case 'outline':
+            default:
+              strokeColor = '#000000'; // Black for regular outlines
+              break;
+          }
+          
+          console.log(`OUTLINE SERVICE: Adding ${path.regionType} outline with color ${strokeColor}`);
+          outlinedPaths.push({
+            d: path.d,
+            fill: 'none',
+            stroke: strokeColor,
+            strokeWidth: lineWidth.toString(),
+            regionType: path.regionType
+          });
+        });
+      }
+      // Fallback: use path data with index-based type detection
+      else if (layerWithPathData.pathData && layerWithPathData.pathData.length > 0) {
+        console.log('OUTLINE SERVICE: Using fallback index-based region type detection');
+        
         // Generate outline paths from the stored path data
         layerWithPathData.pathData.forEach((pathData, index) => {
           // Determine region type based on path index convention
           // Index 0 = outline, odd indices = holes, even indices > 0 = islands
-          // This matches the convention in stencil-conversion.strategy.ts
           let regionType: 'outline' | 'hole' | 'island';
           let strokeColor: string;
           
@@ -71,7 +104,7 @@ export class OutlineService {
             d: pathData,
             fill: 'none',
             stroke: strokeColor,
-            strokeWidth: lineWidth.toString(), // Use the pen width setting
+            strokeWidth: lineWidth.toString(),
             regionType: regionType
           });
         });
