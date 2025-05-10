@@ -66,7 +66,8 @@ export class CrossHatchingService implements ICrossHatchingService {
       // Calculate tone level based on color brightness
       // For demo purposes, we'll use the layer index to determine tone
       // In a real implementation, we would analyze the fill color
-      const toneLevel = 1 - (layerIndex / (vectorOutput.layers.length - 1 || 1));
+      // INVERTED: layerIndex 0 (darkest) -> toneLevel 0, last (lightest) -> toneLevel 1
+      const toneLevel = (layerIndex / (vectorOutput.layers.length - 1 || 1));
 
       // Cast to our extended type to access pathData
       const layerWithPathData = layer as VectorLayerWithPathData;
@@ -265,10 +266,14 @@ export class CrossHatchingService implements ICrossHatchingService {
 
     // Base spacing between lines (in pixels)
     // Darker tones (lower toneLevel) get denser hatching (smaller spacing)
-    const baseSpacing = Math.max(2, Math.min(20, 20 * (0.5 + toneLevel) / settings.density));
-
-    // For very dark tones (< 0.3), use tighter spacing
-    const spacing = toneLevel < 0.3 ? baseSpacing * 0.5 : baseSpacing;
+    // INVERTED: toneLevel 0 (black) -> smallest spacing, toneLevel 1 (white) -> largest spacing
+    const minSpacing = 4; // Slightly less dense for black regions
+    const maxSpacing = 20;
+    // As toneLevel increases (toward white), spacing increases (less hatching)
+    const baseSpacing = minSpacing + (maxSpacing - minSpacing) * toneLevel;
+    const spacing = baseSpacing / settings.density;
+    // Optionally, for pure white (toneLevel ~1), skip hatching entirely
+    if (toneLevel > 0.98) return [];
 
     // Calculate line patterns based on tone
     // Primary angle (0-180 degrees)
