@@ -195,11 +195,12 @@ export class CrossHatchingService implements ICrossHatchingService {
         }
 
         // Create a dummy path for the cross-hatching function
-        const dummyPath = {
+        const dummyPath: VectorPathData = {
           d: '',  // Not used in cross-hatching when we have a compound region
           fill: 'none',
           stroke: '#000000',
-          strokeWidth: '1'
+          strokeWidth: '1',
+          regionType: 'outline' // Cross-hatching serves as outline
         };
 
         // Generate cross-hatching patterns using the compound region
@@ -301,7 +302,8 @@ export class CrossHatchingService implements ICrossHatchingService {
           d: linePath,
           fill: 'none',
           stroke: '#000000', // Black stroke for pen plotting
-          strokeWidth: settings.lineWidth.toString()
+          strokeWidth: settings.lineWidth.toString(),
+          regionType: 'outline' // Cross-hatching is always an outline
         });
       }
 
@@ -331,7 +333,8 @@ export class CrossHatchingService implements ICrossHatchingService {
             d: linePath,
             fill: 'none',
             stroke: '#000000', // Black stroke for pen plotting
-            strokeWidth: settings.lineWidth.toString()
+            strokeWidth: settings.lineWidth.toString(),
+            regionType: 'outline' // Cross-hatching is always an outline
           });
         }
       }
@@ -645,7 +648,8 @@ export class CrossHatchingService implements ICrossHatchingService {
       d: lines.join(' '),
       fill: 'none',
       stroke: '#000000', // Always use black for pen plotting
-      strokeWidth: strokeWidthValue // Pure number as string without px units
+      strokeWidth: strokeWidthValue, // Pure number as string without px units
+      regionType: 'outline' // Hatching lines are always outlines
     };
   }
 }

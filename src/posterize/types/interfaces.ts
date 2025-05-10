@@ -58,7 +58,7 @@ export interface VectorPathData {
   fill: string;
   stroke: string;
   strokeWidth: string;
-  regionType?: 'outline' | 'hole' | 'island';
+  regionType: 'outline' | 'hole' | 'island';
 }
 
 export interface VectorLayer {

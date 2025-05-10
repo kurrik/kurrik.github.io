@@ -54,7 +54,8 @@ export class OutlineService {
             d: pathData,
             fill: 'none',
             stroke: '#000000',  // Always use black for pen plotting
-            strokeWidth: lineWidth.toString() // Use the pen width setting
+            strokeWidth: lineWidth.toString(), // Use the pen width setting
+            regionType: 'outline' // All paths created by outline service are outlines
           });
         });
       }
