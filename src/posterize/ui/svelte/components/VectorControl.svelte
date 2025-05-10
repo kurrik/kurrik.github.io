@@ -1,4 +1,5 @@
 <script lang="ts">
+import { debugModeStore } from '../stores/debugModeStore';
   /// <reference path="../types.d.ts" />
   /**
    * VectorControl Component
@@ -52,6 +53,10 @@
   let layerListElement: HTMLElement;
   
   // Initialize state on mount
+  // Subscribe to debugModeStore and reload preview on change
+  debugModeStore.subscribe(() => {
+    updateVectorPreview();
+  });
   onMount(() => {
     // Load saved strategy from state
     const state = get(posterizeState);
