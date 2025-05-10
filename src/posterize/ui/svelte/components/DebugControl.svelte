@@ -1,27 +1,10 @@
 <script lang="ts">
-  import { writable } from 'svelte/store';
   import { onDestroy } from 'svelte';
+  import { debugModeStore } from '../stores/debugModeStore';
 
-  // Key for localStorage
-  const DEBUG_MODE_KEY = 'posterizeDebugMode';
-
-  // Initialize from localStorage if present
-  let initialDebugMode = false;
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem(DEBUG_MODE_KEY);
-    if (saved !== null) {
-      initialDebugMode = saved === 'true';
-    }
-  }
-
-  export const debugModeStore = writable(initialDebugMode);
-
-  let debugMode = initialDebugMode;
+  let debugMode = false;
   const unsubscribe = debugModeStore.subscribe(value => {
     debugMode = value;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(DEBUG_MODE_KEY, value ? 'true' : 'false');
-    }
   });
 
   // Reactively update the store when debugMode changes via the checkbox

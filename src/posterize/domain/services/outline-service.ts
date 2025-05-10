@@ -54,17 +54,26 @@ export class OutlineService {
           // Determine stroke color based on region type
           let strokeColor: string;
           
-          switch (path.regionType) {
-            case 'hole':
-              strokeColor = '#FF0000'; // Red for holes
-              break;
-            case 'island':
-              strokeColor = '#00FF00'; // Green for islands
-              break;
-            case 'outline':
-            default:
-              strokeColor = '#000000'; // Black for regular outlines
-              break;
+          // Determine debug mode from localStorage (persisted by debugModeStore)
+          let debugMode = false;
+          if (typeof window !== 'undefined') {
+            debugMode = localStorage.getItem('posterizeDebugMode') === 'true';
+          }
+          if (debugMode) {
+            switch (path.regionType) {
+              case 'hole':
+                strokeColor = '#FF0000'; // Red for holes
+                break;
+              case 'island':
+                strokeColor = '#00FF00'; // Green for islands
+                break;
+              case 'outline':
+              default:
+                strokeColor = '#000000'; // Black for regular outlines
+                break;
+            }
+          } else {
+            strokeColor = '#000000'; // Black for all lines if debug is off
           }
           
           console.log(`OUTLINE SERVICE: Adding ${path.regionType} outline with color ${strokeColor}`);
