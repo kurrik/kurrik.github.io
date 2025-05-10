@@ -48,14 +48,31 @@ export class OutlineService {
       // Use the stored path data if available, otherwise use existing paths
       if (layerWithPathData.pathData && layerWithPathData.pathData.length > 0) {
         // Generate outline paths from the stored path data
-        layerWithPathData.pathData.forEach(pathData => {
-          console.log('OUTLINE SERVICE: Adding outline with lineWidth:', lineWidth);
+        layerWithPathData.pathData.forEach((pathData, index) => {
+          // Determine region type based on path index convention
+          // Index 0 = outline, odd indices = holes, even indices > 0 = islands
+          // This matches the convention in stencil-conversion.strategy.ts
+          let regionType: 'outline' | 'hole' | 'island';
+          let strokeColor: string;
+          
+          if (index === 0) {
+            regionType = 'outline';
+            strokeColor = '#000000'; // Black for regular outlines
+          } else if (index % 2 === 1) {
+            regionType = 'hole';
+            strokeColor = '#FF0000'; // Red for holes
+          } else {
+            regionType = 'island';
+            strokeColor = '#00FF00'; // Green for islands
+          }
+          
+          console.log(`OUTLINE SERVICE: Adding ${regionType} outline with color ${strokeColor}`);
           outlinedPaths.push({
             d: pathData,
             fill: 'none',
-            stroke: '#000000',  // Always use black for pen plotting
+            stroke: strokeColor,
             strokeWidth: lineWidth.toString(), // Use the pen width setting
-            regionType: 'outline' // All paths created by outline service are outlines
+            regionType: regionType
           });
         });
       }
