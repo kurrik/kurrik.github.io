@@ -27,6 +27,7 @@
   import VectorControl from "./VectorControl.svelte";
   import ExportControl from "./ExportControl.svelte";
   import ResetControl from "./ResetControl.svelte";
+  import DebugControl from "./DebugControl.svelte";
 
   // Component references - Use 'any' type to fix TypeScript errors during migration
   let imageLoaderComponent: any;
@@ -355,6 +356,7 @@
           <div class="control-panel">
             <h2>Commands</h2>
             <ResetControl />
+            <DebugControl />
           </div>
         </div>
       </div>
