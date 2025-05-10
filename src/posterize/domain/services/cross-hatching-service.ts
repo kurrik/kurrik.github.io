@@ -82,7 +82,7 @@ export class CrossHatchingService implements ICrossHatchingService {
         // Parse all paths to polygons and track region types
         const polygons: Flatten.Polygon[] = [];
         const regionTypes: ('outline' | 'hole' | 'island')[] = [];
-          
+
         // First process paths with explicit region types
         for (let i = 0; i < layer.paths.length; i++) {
           const path = layer.paths[i];
@@ -95,7 +95,7 @@ export class CrossHatchingService implements ICrossHatchingService {
             }
           }
         }
-        
+
         // If no explicitly typed regions found, fallback to pathData and use index conventions
         if (polygons.length === 0 && layerWithPathData.pathData && layerWithPathData.pathData.length > 0) {
           console.log('CROSS-HATCHING: No explicit region types found, using index-based conventions');
@@ -257,7 +257,7 @@ export class CrossHatchingService implements ICrossHatchingService {
       console.warn('CROSS-HATCHING: No valid path data or compound region provided');
       return hatchingPaths;
     }
-    
+
     if (compoundRegion) {
       console.log('CROSS-HATCHING: Using compound region for cross-hatching');
     } else {
@@ -267,7 +267,7 @@ export class CrossHatchingService implements ICrossHatchingService {
     // Base spacing between lines (in pixels)
     // Darker tones (lower toneLevel) get denser hatching (smaller spacing)
     // INVERTED: toneLevel 0 (black) -> smallest spacing, toneLevel 1 (white) -> largest spacing
-    const minSpacing = 4; // Slightly less dense for black regions
+    const minSpacing = 8; // Slightly less dense for black regions
     const maxSpacing = 20;
     // As toneLevel increases (toward white), spacing increases (less hatching)
     const baseSpacing = minSpacing + (maxSpacing - minSpacing) * toneLevel;
