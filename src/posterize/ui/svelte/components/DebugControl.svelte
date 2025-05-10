@@ -2,17 +2,30 @@
   import { writable } from 'svelte/store';
   import { onDestroy } from 'svelte';
 
-  // Use a dedicated store for debugMode
-  export const debugModeStore = writable(false);
+  // Key for localStorage
+  const DEBUG_MODE_KEY = 'posterizeDebugMode';
 
-  let debugMode = false;
+  // Initialize from localStorage if present
+  let initialDebugMode = false;
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem(DEBUG_MODE_KEY);
+    if (saved !== null) {
+      initialDebugMode = saved === 'true';
+    }
+  }
+
+  export const debugModeStore = writable(initialDebugMode);
+
+  let debugMode = initialDebugMode;
   const unsubscribe = debugModeStore.subscribe(value => {
     debugMode = value;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(DEBUG_MODE_KEY, value ? 'true' : 'false');
+    }
   });
 
-  function toggleDebugMode() {
-    debugModeStore.set(!debugMode);
-  }
+  // Reactively update the store when debugMode changes via the checkbox
+  $: debugModeStore.set(debugMode);
 
   onDestroy(unsubscribe);
 </script>
@@ -22,7 +35,6 @@
     <input 
       type="checkbox"
       bind:checked={debugMode}
-      on:change={toggleDebugMode}
     />
     Debug Mode
   </label>
